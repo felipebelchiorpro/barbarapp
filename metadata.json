@@ -1,0 +1,6 @@
+{
+  "name": "Navalha & Arte - Agendamento Barbearia",
+  "description": "Aplicativo mobile-first para agendamento online de barbearia, com seleção de serviços, escolha de profissional, prevenção de double booking e notificações automáticas via WhatsApp (Evolution API).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

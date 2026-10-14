@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F5D77F" />
+      <stop offset="50%" stop-color="#D4AF37" />
+      <stop offset="100%" stop-color="#AA820A" />
+    </linearGradient>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1E1E1E" />
+      <stop offset="100%" stop-color="#0E0E0E" />
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="210" fill="none" stroke="url(#gold)" stroke-width="6" stroke-dasharray="8 6"/>
+  
+  <!-- Razor & Barber Scissors Motif -->
+  <g transform="translate(256, 256)">
+    <!-- Scissor blade 1 -->
+    <path d="M-60,90 C-90,90 -110,60 -90,30 C-70,0 -20,-40 70,-130" fill="none" stroke="url(#gold)" stroke-width="14" stroke-linecap="round"/>
+    <circle cx="-90" cy="50" r="25" fill="none" stroke="url(#gold)" stroke-width="12"/>
+    
+    <!-- Scissor blade 2 -->
+    <path d="M60,90 C90,90 110,60 90,30 C70,0 20,-40 -70,-130" fill="none" stroke="url(#gold)" stroke-width="14" stroke-linecap="round"/>
+    <circle cx="90" cy="50" r="25" fill="none" stroke="url(#gold)" stroke-width="12"/>
+    
+    <!-- Center Pivot screw -->
+    <circle cx="0" cy="-25" r="10" fill="url(#gold)"/>
+    
+    <!-- Straight Razor Accent -->
+    <path d="M-50,-40 L50,-40 L60,-75 L-60,-75 Z" fill="url(#gold)" opacity="0.9"/>
+  </g>
+  
+  <!-- Top & Bottom Typography details -->
+  <text x="256" y="115" font-family="'Syne', sans-serif" font-size="28" font-weight="700" fill="#D4AF37" text-anchor="middle" letter-spacing="8">NAVALHA &amp; ARTE</text>
+  <text x="256" y="420" font-family="'Plus Jakarta Sans', sans-serif" font-size="18" font-weight="600" fill="#A1A1AA" text-anchor="middle" letter-spacing="6">EST. 2024 · BARBEARIA</text>
+</svg>
