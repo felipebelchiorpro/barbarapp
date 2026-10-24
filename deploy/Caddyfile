@@ -1,0 +1,73 @@
+# ==============================================================================
+# Naville SaaS - Caddyfile de Produção Blindado & Roteamento por Slug
+# ==============================================================================
+
+{
+    admin off
+    log {
+        output stdout
+        format json
+        level INFO
+    }
+}
+
+# Snippet de Headers de Segurança Reutilizáveis
+(security_headers) {
+    header {
+        # [1] HSTS estrito (1 ano com subdomínios e preload)
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(self)"
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; frame-ancestors 'none';"
+        -Server
+    }
+}
+
+# 1. Configuração para Teste via IP Direto na VPS (HTTP 80)
+:80, http://173.249.51.210 {
+    # PocketBase API e Painel Admin
+    handle /api/* {
+        reverse_proxy pocketbase:8090
+    }
+    handle /_/* {
+        reverse_proxy pocketbase:8090
+    }
+
+    # Evolution API com suporte a WebSockets
+    handle /evolution/* {
+        uri strip_prefix /evolution
+        reverse_proxy evolution-api:8080 {
+            header_up Host {upstream_hostport}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    # Frontend Web / PWA (rotas /b/:slug, /painel, /barbeiro, etc)
+    handle {
+        reverse_proxy frontend-app:3000
+    }
+}
+
+naville.app, www.naville.app, api.naville.app, whatsapp.naville.app {
+    tls {
+        protocols tls1.2 tls1.3
+    }
+    import security_headers
+
+    handle /api/* {
+        reverse_proxy pocketbase:8090
+    }
+    handle /_/* {
+        reverse_proxy pocketbase:8090
+    }
+    handle /evolution/* {
+        uri strip_prefix /evolution
+        reverse_proxy evolution-api:8080
+    }
+    handle {
+        reverse_proxy frontend-app:3000
+    }
+}

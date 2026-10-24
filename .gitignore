@@ -6,3 +6,8 @@ coverage/
 *.log
 .env*
 !.env.example
+pocketbase/pb_data/
+pocketbase/pocketbase.exe
+agency-agents-repo/
+backups/
+!deploy/.env.production.example

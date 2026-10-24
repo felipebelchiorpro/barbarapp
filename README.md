@@ -1,6 +1,6 @@
-# Barbearia LS - Sistema de Agendamento Online & Gestão
+# Naville - Plataforma SaaS de Agendamento & Gestão para Barbearias
 
-Aplicação web moderna, responsiva (mobile-first) e PWA para agendamento online de barbearia com integração Evolution API (WhatsApp) e painel administrativo.
+Aplicação web moderna, multi-tenant, responsiva (mobile-first) e PWA com gestão financeira, controle de cadeiras, automação WhatsApp via Evolution API e painel Super Admin.
 
 ---
 

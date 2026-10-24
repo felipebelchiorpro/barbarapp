@@ -1,9 +1,21 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: 'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-poppins: 'Poppins', sans-serif;
+  --font-inter: 'Inter', sans-serif;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-jakarta: 'Plus Jakarta Sans', sans-serif;
+}
+
 @layer base {
   :root {
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    font-family: 'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  *, html, body {
+    font-family: 'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
   }
 
   /* Prevent rubber-band effect interference and ensure smooth scrolling */
@@ -20,6 +32,7 @@
     max-width: 100vw;
     width: 100%;
     position: relative;
+    font-family: 'Poppins', 'Inter', sans-serif;
   }
 
   #root {
@@ -49,17 +62,17 @@
 }
 
 .font-display {
-  font-family: 'Urbanist', 'Poppins', 'Plus Jakarta Sans', system-ui, sans-serif;
-  letter-spacing: -0.015em;
+  font-family: 'Montserrat', 'Poppins', sans-serif;
+  letter-spacing: -0.02em;
 }
 
-.font-urbanist {
-  font-family: 'Urbanist', 'Plus Jakarta Sans', system-ui, sans-serif;
-  letter-spacing: -0.015em;
+.font-montserrat {
+  font-family: 'Montserrat', sans-serif;
+  letter-spacing: -0.02em;
 }
 
 .font-poppins {
-  font-family: 'Poppins', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-family: 'Poppins', sans-serif;
   letter-spacing: -0.01em;
 }
 
@@ -91,3 +104,63 @@
   flex-direction: column;
   justify-content: space-between;
 }
+
+/* Naville Luxury Suite Typography */
+.font-serif {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+.font-jakarta {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+/* Naville Luxury Suite Ambient Glows & Card Borders */
+.gold-glow {
+  box-shadow: 0 4px 25px -4px rgba(212, 163, 115, 0.35);
+}
+.gold-glow-sm {
+  box-shadow: 0 2px 14px -2px rgba(212, 163, 115, 0.25);
+}
+.card-border-gradient {
+  border: 1px solid rgba(212, 163, 115, 0.18);
+}
+
+/* Asymmetric Luxury Organic Curve Cutout */
+.curved-sheet-cutout {
+  border-top-left-radius: 36px;
+  border-top-right-radius: 36px;
+  position: relative;
+}
+.curved-sheet-cutout::before {
+  content: '';
+  position: absolute;
+  top: -26px;
+  right: 0;
+  width: 48%;
+  height: 28px;
+  background: radial-gradient(circle at 100% 0%, transparent 26px, #0F0F11 27px);
+  pointer-events: none;
+}
+
+/* Luxury VIP Schedule Box & Interactive Slots */
+.luxury-box-gradient {
+  background: linear-gradient(180deg, #1A1822 0%, #141318 45%, #0E0D11 100%);
+  border: 1px solid rgba(212, 163, 115, 0.32);
+  box-shadow: 0 12px 36px -4px rgba(0, 0, 0, 0.8), 0 0 24px -2px rgba(212, 163, 115, 0.12);
+}
+
+.luxury-chip-active {
+  background: linear-gradient(135deg, #D4A373 0%, #E8C5A0 50%, #B88656 100%);
+  color: #0F0F11 !important;
+  box-shadow: 0 4px 20px rgba(212, 163, 115, 0.45);
+}
+
+.luxury-chip-idle {
+  background: #16161C;
+  border: 1px solid #2D2B38;
+  color: #FFFFFF;
+}
+.luxury-chip-idle:hover {
+  border-color: rgba(212, 163, 115, 0.65);
+  background: #1F1D26;
+}
+

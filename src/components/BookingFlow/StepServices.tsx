@@ -92,6 +92,13 @@ export const StepServices: React.FC<StepServicesProps> = ({
                   : 'bg-[#18181B] border-white/5 hover:border-white/15 hover:bg-[#1E1E1E]'
               }`}
             >
+              {service.imageUrl && (
+                <img
+                  src={service.imageUrl}
+                  alt={service.name}
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl object-cover border border-white/10 shrink-0 hidden xs:block"
+                />
+              )}
               <div className="flex-1 min-w-0 pr-1">
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                   <h3 className="text-sm sm:text-base font-bold text-white tracking-tight truncate group-hover:text-amber-200 transition-colors font-display">

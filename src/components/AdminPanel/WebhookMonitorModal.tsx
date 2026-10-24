@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Activity, Send, CheckCircle, RefreshCw, Settings, ExternalLink, Code2 } from 'lucide-react';
+import { X, Pulse as Activity, PaperPlaneTilt as Send, CheckCircle, ArrowsClockwise as RefreshCw, Gear as Settings, ArrowSquareOut as ExternalLink, Code as Code2 } from '@phosphor-icons/react';
 import { EvolutionApiConfig, WebhookLog, Booking } from '../../types';
 
 interface WebhookMonitorModalProps {

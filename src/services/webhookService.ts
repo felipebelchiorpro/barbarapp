@@ -1,5 +1,6 @@
 import { Booking, EvolutionApiConfig, WebhookLog } from '../types';
 import { cleanPhone, formatCurrency, formatDatePtBR } from '../utils/formatters';
+import { logSystemError } from './systemErrorLogService';
 
 export function createBookingConfirmationMessage(booking: Booking, shopName: string = 'Barbearia LS'): string {
   const serviceList = booking.services.map((s) => `✂️ ${s.name} (${s.durationMinutes} min)`).join('\n');
@@ -45,11 +46,13 @@ Olá, *${booking.customerName}*, seu agendamento para o dia *${formatDatePtBR(bo
 Esperamos vê-lo em breve! Quando quiser agendar um novo horário, acesse nosso link.`;
 }
 
-export function generateWhatsAppDirectLink(phone: string, message: string): string {
+export function generateWhatsAppDirectLink(phone: string, message?: string): string {
   const cleanDigits = cleanPhone(phone);
   // Add Brazil country code 55 if not already present
   const fullNumber = cleanDigits.startsWith('55') ? cleanDigits : `55${cleanDigits}`;
-  return `https://wa.me/${fullNumber}?text=${encodeURIComponent(message)}`;
+  return message && message.trim()
+    ? `https://wa.me/${fullNumber}?text=${encodeURIComponent(message.trim())}`
+    : `https://wa.me/${fullNumber}`;
 }
 
 export async function dispatchEvolutionWebhook(
@@ -101,36 +104,51 @@ export async function dispatchEvolutionWebhook(
       : null,
   };
 
-  const endpoint = config.baseUrl
-    ? `${config.baseUrl.replace(/\/$/, '')}/message/sendText/${config.instanceName || 'barbearia'}`
-    : 'https://api.evolution.local/message/sendText/barbearia';
-
   let status: 'delivered' | 'simulated' | 'error' = 'simulated';
   let responseMessage = 'Simulado com sucesso no sandbox da Evolution API (HTTP 200 OK)';
 
-  // If a valid external URL is configured, attempt real fetch
-  if (config.baseUrl && config.baseUrl.startsWith('http')) {
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: config.apiKey || 'default_key',
-        },
-        body: JSON.stringify(payload),
-      });
+  // Roteia via proxy seguro do backend (/api/whatsapp/send-message) para não expor a chave de API
+  const isDirectEvolution = config.baseUrl && (config.baseUrl.includes(':8080') || config.baseUrl.includes('whatsapp.naville.app'));
+  const endpoint = isDirectEvolution
+    ? `${config.baseUrl.replace(/\/$/, '')}/message/sendText/${config.instanceName || 'barbearia'}`
+    : '/api/whatsapp/send-message';
 
-      if (response.ok) {
-        status = 'delivered';
-        responseMessage = `Disparado via Evolution API Real: HTTP ${response.status} OK`;
-      } else {
-        status = 'error';
-        responseMessage = `Erro Evolution API: HTTP ${response.status} ${response.statusText}`;
-      }
-    } catch (err: unknown) {
-      status = 'simulated';
-      responseMessage = `Simulado localmente (Rede externa inacessível no preview: ${(err as Error).message})`;
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Tenant-Id': config.instanceName || 'barbearia',
+    };
+    if (isDirectEvolution && config.apiKey) {
+      headers.apikey = config.apiKey;
     }
+
+    const requestBody = isDirectEvolution
+      ? JSON.stringify(payload)
+      : JSON.stringify({ number: formattedNumber, text: textMessage });
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: requestBody,
+    });
+
+    if (response.ok) {
+      status = 'delivered';
+      responseMessage = `Disparado com sucesso via Gateway WhatsApp (HTTP ${response.status} OK)`;
+    } else {
+      status = 'error';
+      responseMessage = `Erro Evolution API: HTTP ${response.status} ${response.statusText}`;
+      logSystemError({
+        barbearia_id: config.instanceName || null,
+        nivel: 'erro_api',
+        modulo: 'evolution_api',
+        mensagem_erro: `Falha ao enviar mensagem WhatsApp (HTTP ${response.status}): ${response.statusText}`,
+        detalhes_tecnicos: { endpoint, httpStatus: response.status, payload },
+      }).catch(() => {});
+    }
+  } catch (err: unknown) {
+    status = 'simulated';
+    responseMessage = `Simulado com segurança (Modo offline / sandbox: ${(err as Error).message})`;
   }
 
   const log: WebhookLog = {

@@ -1,6 +1,6 @@
 {
-  "name": "Navalha & Arte - Agendamento Barbearia",
-  "description": "Aplicativo mobile-first para agendamento online de barbearia, com seleção de serviços, escolha de profissional, prevenção de double booking e notificações automáticas via WhatsApp (Evolution API).",
+  "name": "Naville - Sistema de Gestão & Agendamento para Barbearias",
+  "description": "Plataforma multi-tenant mobile-first Naville para gestão completa de barbearias, agendamento online com anti-double booking, controle de equipe e notificações automáticas via WhatsApp (Evolution API).",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

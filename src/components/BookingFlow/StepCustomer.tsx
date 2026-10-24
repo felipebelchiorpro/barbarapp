@@ -1,12 +1,15 @@
 import React from 'react';
-import { User, Phone, FileText, MessageCircle, ShieldCheck } from 'lucide-react';
+import { User, Phone, FileText, ShieldCheck, Crown } from 'lucide-react';
 import { formatPhone } from '../../utils/formatters';
+import { ClientSubscriptionPlan } from '../../types';
+import { WhatsAppIcon } from '../WhatsAppIcon';
 
 interface StepCustomerProps {
   customerName: string;
   customerPhone: string;
   customerNotes: string;
   notifyWhatsApp: boolean;
+  activeCustomerPlan?: ClientSubscriptionPlan | null;
   onChangeName: (name: string) => void;
   onChangePhone: (phone: string) => void;
   onChangeNotes: (notes: string) => void;
@@ -18,6 +21,7 @@ export const StepCustomer: React.FC<StepCustomerProps> = ({
   customerPhone,
   customerNotes,
   notifyWhatsApp,
+  activeCustomerPlan,
   onChangeName,
   onChangePhone,
   onChangeNotes,
@@ -76,13 +80,35 @@ export const StepCustomer: React.FC<StepCustomerProps> = ({
               maxLength={15}
               className="w-full h-12 px-3.5 pl-10 rounded-xl bg-zinc-900 border border-white/10 text-white placeholder-zinc-500 text-sm font-mono focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition"
             />
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-400 pointer-events-none">
-              <MessageCircle className="w-4 h-4" />
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+              <WhatsAppIcon variant="official" size={18} />
             </div>
           </div>
           <p className="text-[11px] text-zinc-500">
             Você receberá o comprovante instantâneo e lembrete do horário nesta linha.
           </p>
+
+          {/* VIP Member Recognition Badge */}
+          {activeCustomerPlan && (
+            <div className="mt-2.5 p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-[#D4AF37]/10 to-amber-500/5 border border-amber-500/30 text-left flex items-start gap-3 animate-in fade-in">
+              <div className="w-9 h-9 rounded-xl bg-[#D4AF37] text-black font-bold flex items-center justify-center shrink-0 mt-0.5 shadow-md">
+                <Crown className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-[#D4AF37]">
+                    Membro VIP Identificado
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#D4AF37] text-black">
+                    {activeCustomerPlan.nome}
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-300 leading-relaxed">
+                  Identificamos seu plano ativo! No próximo passo validaremos a cobertura dos serviços e o dia da semana escolhido.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Notes (Optional) */}

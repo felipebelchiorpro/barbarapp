@@ -1,12 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { Star, MapPin, Clock, Camera, Sliders, Check, Smartphone } from 'lucide-react';
+import { Star, MapPin, Clock, Camera, Sliders, Check } from 'lucide-react';
 import { HERO_IMAGE } from '../data/mockData';
 
 interface HeroBannerProps {
   onOpenQRCode?: () => void;
 }
 
-export const HeroBanner: React.FC<HeroBannerProps> = ({ onOpenQRCode }) => {
+export const HeroBanner: React.FC<HeroBannerProps> = () => {
   const [filterStyle, setFilterStyle] = useState<'dark' | 'cinematic' | 'natural'>('dark');
   const [showStyleMenu, setShowStyleMenu] = useState(false);
   const [customPhoto, setCustomPhoto] = useState<string | null>(() => {
@@ -152,17 +152,6 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ onOpenQRCode }) => {
               <Clock className="w-3.5 h-3.5 text-[#D4AF37]" />
               <span>Seg a Sáb · 09h às 20h</span>
             </div>
-
-            {onOpenQRCode && (
-              <button
-                onClick={onOpenQRCode}
-                className="inline-flex items-center gap-1.5 text-xs text-amber-300 font-bold bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 px-2.5 py-1 rounded-lg backdrop-blur-md transition cursor-pointer active:scale-95 shadow-sm"
-                title="Acessar no celular via QR Code"
-              >
-                <Smartphone className="w-3.5 h-3.5 text-amber-400" />
-                <span className="hidden sm:inline">No Celular</span>
-              </button>
-            )}
           </div>
         </div>
 

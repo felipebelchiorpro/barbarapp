@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Naville Luxury Barbershop</title>
+  
+  <!-- Google Fonts: Plus Jakarta Sans & Playfair Display for luxury touch -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Phosphor Icons CDN -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            luxury: {
+              bg: '#0F0F11',
+              card: '#16161A',
+              cardHover: '#1D1D23',
+              border: '#2A2A32',
+              borderLight: '#383842',
+              gold: '#D4A373',
+              goldDark: '#B88656',
+              goldLight: '#E8C5A0',
+              accent: '#C59B63',
+              muted: '#8E8E98',
+              mutedDark: '#555560'
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            serif: ['"Playfair Display"', 'serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbar for Luxury Horizontal Carousels */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    
+    /* Touch Action & App Feel */
+    body {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    /* Ambient Glows */
+    .gold-glow {
+      box-shadow: 0 4px 25px -4px rgba(212, 163, 115, 0.35);
+    }
+    .gold-glow-sm {
+      box-shadow: 0 2px 14px -2px rgba(212, 163, 115, 0.25);
+    }
+    .card-border-gradient {
+      border: 1px solid rgba(212, 163, 115, 0.18);
+    }
+
+    /* Asymmetric Luxury Organic Curve Cutout */
+    .curved-sheet-cutout {
+      border-top-left-radius: 36px;
+      border-top-right-radius: 36px;
+      position: relative;
+    }
+    .curved-sheet-cutout::before {
+      content: '';
+      position: absolute;
+      top: -26px;
+      right: 0;
+      width: 48%;
+      height: 28px;
+      background: radial-gradient(circle at 100% 0%, transparent 26px, #0F0F11 27px);
+      pointer-events: none;
+    }
+  </style>
+</head>
+
+<body class="bg-[#0A0A0C] text-white font-sans antialiased flex justify-center min-h-screen">
+
+  <!-- Mobile Viewport Wrapper (Simulates mobile device in desktop preview, expands nicely) -->
+  <div class="w-full max-w-md bg-luxury-bg min-h-screen flex flex-col relative pb-28 border-x border-luxury-border/30 shadow-2xl overflow-x-hidden">
+
+    <!-- TOP ROLE SWITCHER BAR (Interactive Switch for Prototype Demo) -->
+    <header class="sticky top-0 z-50 bg-[#0F0F11]/95 backdrop-blur-md border-b border-luxury-border/60 px-4 py-2.5 transition-all">
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-luxury-gold to-luxury-goldDark flex items-center justify-center text-luxury-bg font-serif font-black text-sm tracking-wider shadow-sm">
+            N
+          </div>
+          <span class="font-serif tracking-widest text-xs uppercase font-bold text-luxury-goldLight">NAVILLE SUITE</span>
+        </div>
+        <span class="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-luxury-gold/10 text-luxury-gold border border-luxury-gold/30" id="currentViewBadge">
+          Cliente (Agendamento)
+        </span>
+      </div>
+
+      <!-- View Tabs -->
+      <div class="grid grid-cols-3 gap-1 p-1 bg-black/40 rounded-xl border border-luxury-border">
+        <button onclick="switchView('client')" id="tabBtnClient" class="py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all bg-luxury-gold text-luxury-bg shadow-sm">
+          <i class="ph-bold ph-user"></i>
+          <span>Cliente</span>
+        </button>
+        <button onclick="switchView('barber')" id="tabBtnBarber" class="py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all text-luxury-muted hover:text-white">
+          <i class="ph-bold ph-scissors"></i>
+          <span>Barbeiro</span>
+        </button>
+        <button onclick="switchView('owner')" id="tabBtnOwner" class="py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all text-luxury-muted hover:text-white">
+          <i class="ph-bold ph-chart-line-up"></i>
+          <span>Gestão</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 1: CLIENT LUXURY EXPERIENCE WITH CURVED HERO HEADER -->
+    <!-- ========================================================================= -->
+    <main id="viewClient" class="flex-1 flex flex-col transition-opacity duration-300">
+      
+      <!-- HERO COVER WITH ASYMMETRIC CURVED SCOOP OVERLAY (Exact reference image styling) -->
+      <div class="relative w-full h-72 sm:h-80 overflow-hidden bg-black flex-shrink-0">
+        <!-- Background Hero Image (Barbershop Ambience / Cut) -->
+        <img id="barbershopCoverImg" src="https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=800&q=80" 
+             alt="Naville Heritage Barbershop" 
+             class="w-full h-full object-cover object-center filter brightness-[0.88] transition-transform duration-700 hover:scale-105">
+        
+        <!-- Gradient Overlay for Contrast -->
+        <div class="absolute inset-0 bg-gradient-to-t from-[#0F0F11] via-black/40 to-black/60"></div>
+
+        <!-- Top Floating Actions: Back, Favorite, Share -->
+        <div class="absolute top-3 left-0 right-0 px-4 flex items-center justify-between z-20">
+          <button onclick="showToast('Voltar para início')" class="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-black/80 transition-all active:scale-95">
+            <i class="ph-bold ph-caret-left text-lg"></i>
+          </button>
+          
+          <div class="flex items-center gap-2">
+            <button onclick="toggleFavorite(this)" class="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:text-rose-400 hover:bg-black/80 transition-all active:scale-95">
+              <i class="ph-bold ph-heart text-base"></i>
+            </button>
+            <button onclick="shareBarbershop()" class="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:text-luxury-gold hover:bg-black/80 transition-all active:scale-95">
+              <i class="ph-bold ph-share-network text-base"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Floating Quick Switch of Cover Ambience (Customize Photos easily) -->
+        <div class="absolute bottom-16 right-4 z-20">
+          <button onclick="cycleCoverPhoto()" class="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-luxury-gold/40 text-[10px] text-luxury-goldLight font-semibold flex items-center gap-1.5 shadow-md active:scale-95">
+            <i class="ph-bold ph-camera"></i>
+            <span>Ver Espaço</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ASYMMETRIC CURVED SHEET CUTOUT OVERLAY -->
+      <div class="curved-sheet-cutout -mt-12 bg-luxury-bg z-10 px-5 pt-3 pb-2 border-t border-luxury-border/30">
+        
+        <!-- Barbershop Identity, Logo Badge, Live Status & Rating -->
+        <div class="flex items-start justify-between gap-3 pt-1">
+          <div class="flex items-center gap-3">
+            <!-- Round Barbershop Crest / Logo with Gold Ring -->
+            <div class="relative flex-shrink-0">
+              <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#221c15] to-[#121113] p-0.5 border-2 border-luxury-gold shadow-lg flex items-center justify-center">
+                <div class="w-full h-full rounded-[14px] bg-[#16151A] flex flex-col items-center justify-center text-luxury-gold">
+                  <i class="ph-fill ph-crown text-xl"></i>
+                  <span class="text-[8px] font-black tracking-widest uppercase">NVL</span>
+                </div>
+              </div>
+              <span class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-luxury-bg flex items-center justify-center" title="Aberto Agora">
+                <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+              </span>
+            </div>
+
+            <!-- Name, Category & Address -->
+            <div>
+              <div class="flex items-center gap-2">
+                <h1 class="text-base font-extrabold text-white tracking-tight leading-tight">Naville Heritage</h1>
+                <span class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-luxury-gold/20 text-luxury-gold border border-luxury-gold/30">VIP CLUB</span>
+              </div>
+              <p class="text-[11px] text-luxury-muted mt-0.5 flex items-center gap-1">
+                <i class="ph-bold ph-map-pin text-luxury-gold text-xs"></i>
+                <span>Jardins, São Paulo • 1.2 km</span>
+              </p>
+              
+              <!-- Stars Rating and Reviews -->
+              <div class="flex items-center gap-1.5 mt-1">
+                <div class="flex items-center text-amber-400 text-xs gap-0.5">
+                  <i class="ph-fill ph-star"></i>
+                  <i class="ph-fill ph-star"></i>
+                  <i class="ph-fill ph-star"></i>
+                  <i class="ph-fill ph-star"></i>
+                  <i class="ph-fill ph-star-half"></i>
+                </div>
+                <span class="text-xs font-bold text-white">4.9</span>
+                <span class="text-[10px] text-luxury-muted">(380+ avaliações)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Appointment History Check (No Password Needed) -->
+          <button onclick="openClientHistoryModal()" title="Consultar Meus Cortes" class="flex flex-col items-center justify-center w-10 h-10 rounded-2xl bg-luxury-card border border-luxury-border text-luxury-gold hover:border-luxury-gold/60 active:scale-95 transition-all shadow-sm">
+            <i class="ph-bold ph-calendar-check text-lg"></i>
+          </button>
+        </div>
+
+        <!-- Operating Hours Pill & Fast Actions (WhatsApp / Map) -->
+        <div class="mt-3.5 p-2.5 rounded-2xl bg-luxury-card border border-luxury-border flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 overflow-hidden">
+            <div class="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center flex-shrink-0">
+              <i class="ph-bold ph-clock"></i>
+            </div>
+            <div class="truncate">
+              <span class="text-[10px] font-bold text-emerald-400 block leading-none">Aberto hoje até 20:30</span>
+              <span class="text-[10px] text-luxury-muted block mt-0.5 truncate">Segunda a Sábado • 09:00 às 20:30</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-1.5 flex-shrink-0">
+            <a href="https://wa.me/5511999999999" target="_blank" class="px-2.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold flex items-center gap-1 hover:bg-emerald-500/25 transition-all">
+              <i class="ph-bold ph-whatsapp-logo text-sm"></i>
+              <span>Zap</span>
+            </a>
+            <button onclick="showToast('Localização: Av. Paulista, 1000 - Jardins')" class="p-1.5 rounded-xl bg-luxury-bg border border-luxury-border text-luxury-muted hover:text-white transition-all">
+              <i class="ph-bold ph-navigation-arrow text-sm"></i>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Search & Look-up bar (No password needed) -->
+      <div class="px-5 pt-1 pb-2">
+        <div class="relative flex items-center">
+          <i class="ph-bold ph-magnifying-glass absolute left-3.5 text-luxury-muted text-base"></i>
+          <input type="text" id="serviceSearch" oninput="filterServices(this.value)" placeholder="Buscar corte, barba, combo ou bebida..." 
+            class="w-full bg-luxury-card text-xs text-white pl-10 pr-4 py-3 rounded-2xl border border-luxury-border focus:border-luxury-gold outline-none transition-all placeholder:text-luxury-muted/70">
+        </div>
+      </div>
+
+      <!-- Configurable Promotional Carousel (Banner de Ofertas / Clube / Lounge) -->
+      <div class="pt-1 pb-1">
+        <div class="relative overflow-hidden px-5">
+          <!-- Slide Container -->
+          <div id="promoCarousel" class="flex transition-transform duration-500 ease-out rounded-2xl overflow-hidden card-border-gradient relative">
+            
+            <!-- Slide 1: Combo Destaque -->
+            <div class="w-full flex-shrink-0 bg-gradient-to-br from-[#241A12] via-[#1A1817] to-luxury-card p-4 relative flex items-center justify-between min-h-[135px]">
+              <div class="relative z-10 max-w-[62%]">
+                <span class="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-md bg-luxury-gold/20 text-luxury-gold border border-luxury-gold/30">Destaque da Semana</span>
+                <h3 class="text-sm font-bold text-white mt-1.5 leading-snug">Barba Terapia + Corte Freestyle</h3>
+                <p class="text-[11px] text-luxury-muted mt-1">Ganhe 1 Cerveja Artesanal no lounge.</p>
+                <div class="mt-2.5 flex items-center gap-2">
+                  <span class="text-xs font-bold text-luxury-gold">R$ 95,00</span>
+                  <button onclick="selectQuickPromo('Barba Terapia + Corte', 95)" class="px-2.5 py-1 rounded-lg bg-luxury-gold text-luxury-bg text-[10px] font-bold hover:brightness-110 active:scale-95 transition-all">
+                    Agendar
+                  </button>
+                </div>
+              </div>
+              <div class="w-24 h-24 rounded-xl overflow-hidden border border-luxury-border flex-shrink-0 shadow-md">
+                <img src="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=300&q=80" alt="Corte e Barba" class="w-full h-full object-cover">
+              </div>
+            </div>
+
+            <!-- Slide 2: Clube de Assinatura -->
+            <div class="w-full flex-shrink-0 bg-gradient-to-br from-[#1C1A24] via-[#16161C] to-luxury-card p-4 relative flex items-center justify-between min-h-[135px]">
+              <div class="relative z-10 max-w-[65%]">
+                <span class="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30">Naville Club VIP</span>
+                <h3 class="text-sm font-bold text-white mt-1.5 leading-snug">Cortes Ilimitados por Mês</h3>
+                <p class="text-[11px] text-luxury-muted mt-1">Sem filas, cobrança mensal fixa.</p>
+                <button onclick="showToast('Saiba mais sobre o Clube no balcão ou via WhatsApp!')" class="mt-2.5 px-3 py-1 rounded-lg bg-luxury-gold/20 border border-luxury-gold/40 text-luxury-gold text-[10px] font-bold">
+                  Assinar R$ 89/mês
+                </button>
+              </div>
+              <div class="w-24 h-24 rounded-xl overflow-hidden border border-luxury-border flex-shrink-0 shadow-md">
+                <img src="https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=300&q=80" alt="Barbearia VIP" class="w-full h-full object-cover">
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Carousel Dots -->
+          <div class="flex justify-center gap-1.5 mt-2">
+            <button onclick="setSlide(0)" id="dot0" class="w-5 h-1.5 rounded-full bg-luxury-gold transition-all"></button>
+            <button onclick="setSlide(1)" id="dot1" class="w-2 h-1.5 rounded-full bg-luxury-border transition-all"></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Categories Pills (Cabelo, Barba, Combo, Estética) -->
+      <div class="px-5 pt-3 pb-1">
+        <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+          <button onclick="filterCategory('todos')" id="cat-todos" class="cat-pill active flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-luxury-gold text-luxury-bg whitespace-nowrap transition-all shadow-sm">
+            <i class="ph-bold ph-squares-four"></i> Todos
+          </button>
+          <button onclick="filterCategory('corte')" id="cat-corte" class="cat-pill flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-luxury-card text-luxury-muted border border-luxury-border whitespace-nowrap hover:text-white transition-all">
+            <i class="ph-bold ph-scissors"></i> Cabelo
+          </button>
+          <button onclick="filterCategory('barba')" id="cat-barba" class="cat-pill flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-luxury-card text-luxury-muted border border-luxury-border whitespace-nowrap hover:text-white transition-all">
+            <i class="ph-bold ph-razor"></i> Barba
+          </button>
+          <button onclick="filterCategory('combo')" id="cat-combo" class="cat-pill flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-luxury-card text-luxury-muted border border-luxury-border whitespace-nowrap hover:text-white transition-all">
+            <i class="ph-bold ph-package"></i> Combos VIP
+          </button>
+        </div>
+      </div>
+
+      <!-- Services Selection Grid/Cards -->
+      <div class="px-5 pt-2">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-luxury-muted">1. Selecione o Serviço</h2>
+          <span class="text-[11px] text-luxury-gold" id="selectedServiceBadge">Nenhum</span>
+        </div>
+
+        <div class="space-y-2.5" id="servicesList">
+          <!-- Item 1 -->
+          <div onclick="selectService('Classic Haircut Fade', 55, '40 min', this)" class="service-item cursor-pointer p-3.5 rounded-2xl bg-luxury-card border border-luxury-border hover:border-luxury-gold/50 transition-all flex items-center justify-between group active:scale-[0.99]" data-category="corte">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-xl bg-luxury-bg border border-luxury-border/80 flex items-center justify-center text-luxury-gold text-xl group-hover:scale-105 transition-transform">
+                <i class="ph-fill ph-scissors"></i>
+              </div>
+              <div>
+                <h4 class="text-xs font-bold text-white group-hover:text-luxury-gold transition-colors">Classic Haircut & Fade</h4>
+                <p class="text-[11px] text-luxury-muted mt-0.5 flex items-center gap-2">
+                  <span><i class="ph-bold ph-clock text-[10px]"></i> 40 min</span>
+                  <span>•</span>
+                  <span>Lavagem & Styling</span>
+                </p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="text-sm font-bold text-luxury-gold">R$ 55</span>
+              <div class="check-circle w-5 h-5 rounded-full border border-luxury-border flex items-center justify-center mt-1 ml-auto group-hover:border-luxury-gold transition-colors">
+                <div class="inner-dot w-2.5 h-2.5 rounded-full bg-luxury-gold hidden"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Item 2 -->
+          <div onclick="selectService('Barba Terapia Completa', 45, '35 min', this)" class="service-item cursor-pointer p-3.5 rounded-2xl bg-luxury-card border border-luxury-border hover:border-luxury-gold/50 transition-all flex items-center justify-between group active:scale-[0.99]" data-category="barba">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-xl bg-luxury-bg border border-luxury-border/80 flex items-center justify-center text-luxury-gold text-xl group-hover:scale-105 transition-transform">
+                <i class="ph-fill ph-razor"></i>
+              </div>
+              <div>
+                <h4 class="text-xs font-bold text-white group-hover:text-luxury-gold transition-colors">Barba Terapia com Toalha Quente</h4>
+                <p class="text-[11px] text-luxury-muted mt-0.5 flex items-center gap-2">
+                  <span><i class="ph-bold ph-clock text-[10px]"></i> 35 min</span>
+                  <span>•</span>
+                  <span>Óleos Especiais</span>
+                </p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="text-sm font-bold text-luxury-gold">R$ 45</span>
+              <div class="check-circle w-5 h-5 rounded-full border border-luxury-border flex items-center justify-center mt-1 ml-auto group-hover:border-luxury-gold transition-colors">
+                <div class="inner-dot w-2.5 h-2.5 rounded-full bg-luxury-gold hidden"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Item 3 -->
+          <div onclick="selectService('Combo Royal (Corte + Barba)', 90, '65 min', this)" class="service-item cursor-pointer p-3.5 rounded-2xl bg-luxury-card border border-luxury-border hover:border-luxury-gold/50 transition-all flex items-center justify-between group active:scale-[0.99]" data-category="combo">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-xl bg-luxury-bg border border-luxury-border/80 flex items-center justify-center text-luxury-gold text-xl group-hover:scale-105 transition-transform">
+                <i class="ph-fill ph-crown"></i>
+              </div>
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <h4 class="text-xs font-bold text-white group-hover:text-luxury-gold transition-colors">Combo Royal Experience</h4>
+                  <span class="text-[9px] bg-luxury-gold/20 text-luxury-gold font-bold px-1.5 rounded">POPULAR</span>
+                </div>
+                <p class="text-[11px] text-luxury-muted mt-0.5 flex items-center gap-2">
+                  <span><i class="ph-bold ph-clock text-[10px]"></i> 65 min</span>
+                  <span>•</span>
+                  <span>Corte + Barba + Massagem</span>
+                </p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="text-sm font-bold text-luxury-gold">R$ 90</span>
+              <div class="check-circle w-5 h-5 rounded-full border border-luxury-border flex items-center justify-center mt-1 ml-auto group-hover:border-luxury-gold transition-colors">
+                <div class="inner-dot w-2.5 h-2.5 rounded-full bg-luxury-gold hidden"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Choose Barber (Round Profile Avatars) -->
+      <div class="px-5 pt-4">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-luxury-muted">2. Escolha o Profissional</h2>
+          <span class="text-[11px] text-luxury-gold" id="selectedBarberName">Qualquer Barbeiro</span>
+        </div>
+
+        <div class="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
+          <!-- Anyone -->
+          <div onclick="selectBarber('Qualquer Barbeiro', 'Primeiro livre', this)" class="barber-avatar-card active flex-shrink-0 flex flex-col items-center cursor-pointer group">
+            <div class="w-14 h-14 rounded-full border-2 border-luxury-gold p-0.5 relative transition-transform group-hover:scale-105">
+              <div class="w-full h-full rounded-full bg-luxury-card flex items-center justify-center text-luxury-gold">
+                <i class="ph-bold ph-lightning text-xl"></i>
+              </div>
+            </div>
+            <span class="text-[11px] font-semibold text-white mt-1.5 text-center">Primeiro Livre</span>
+            <span class="text-[9px] text-luxury-muted">Mais rápido</span>
+          </div>
+
+          <!-- Barber 1 -->
+          <div onclick="selectBarber('Marcus Rocha', 'Master Barber • 8 anos', this)" class="barber-avatar-card flex-shrink-0 flex flex-col items-center cursor-pointer group">
+            <div class="w-14 h-14 rounded-full border-2 border-transparent p-0.5 relative transition-transform group-hover:scale-105">
+              <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80" class="w-full h-full rounded-full object-cover">
+              <span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-luxury-bg"></span>
+            </div>
+            <span class="text-[11px] font-semibold text-white mt-1.5 text-center">Marcus Rocha</span>
+            <span class="text-[9px] text-luxury-gold flex items-center gap-0.5"><i class="ph-fill ph-star"></i> 4.9</span>
+          </div>
+
+          <!-- Barber 2 -->
+          <div onclick="selectBarber('André Silva', 'Especialista em Barba', this)" class="barber-avatar-card flex-shrink-0 flex flex-col items-center cursor-pointer group">
+            <div class="w-14 h-14 rounded-full border-2 border-transparent p-0.5 relative transition-transform group-hover:scale-105">
+              <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80" class="w-full h-full rounded-full object-cover">
+              <span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-luxury-bg"></span>
+            </div>
+            <span class="text-[11px] font-semibold text-white mt-1.5 text-center">André Silva</span>
+            <span class="text-[9px] text-luxury-gold flex items-center gap-0.5"><i class="ph-fill ph-star"></i> 4.8</span>
+          </div>
+
+          <!-- Barber 3 -->
+          <div onclick="selectBarber('Felipe Duarte', 'Visagista • Fade Pro', this)" class="barber-avatar-card flex-shrink-0 flex flex-col items-center cursor-pointer group">
+            <div class="w-14 h-14 rounded-full border-2 border-transparent p-0.5 relative transition-transform group-hover:scale-105">
+              <img src="https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=200&q=80" class="w-full h-full rounded-full object-cover">
+              <span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-luxury-bg"></span>
+            </div>
+            <span class="text-[11px] font-semibold text-white mt-1.5 text-center">Felipe D.</span>
+            <span class="text-[9px] text-luxury-gold flex items-center gap-0.5"><i class="ph-fill ph-star"></i> 5.0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Select Date & Time (Horizontal Carousel & Chips) -->
+      <div class="px-5 pt-4">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-luxury-muted">3. Data & Horário</h2>
+          <span class="text-[11px] text-luxury-gold" id="selectedDateTimeLabel">Hoje, 14:00</span>
+        </div>
+
+        <!-- Date Strip -->
+        <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1" id="datesContainer">
+          <!-- Dynamically populated or static dates -->
+          <div onclick="selectDate('Hoje', '24 Out', this)" class="date-chip active flex-shrink-0 w-14 py-2.5 rounded-2xl bg-luxury-gold text-luxury-bg font-bold flex flex-col items-center justify-center cursor-pointer transition-all shadow-md">
+            <span class="text-[10px] uppercase font-bold tracking-wider">SÁB</span>
+            <span class="text-base font-extrabold leading-none mt-0.5">24</span>
+          </div>
+          <div onclick="selectDate('Segunda', '26 Out', this)" class="date-chip flex-shrink-0 w-14 py-2.5 rounded-2xl bg-luxury-card border border-luxury-border text-luxury-muted font-bold flex flex-col items-center justify-center cursor-pointer hover:border-luxury-gold/40 transition-all">
+            <span class="text-[10px] uppercase font-semibold">SEG</span>
+            <span class="text-base text-white font-bold leading-none mt-0.5">26</span>
+          </div>
+          <div onclick="selectDate('Terça', '27 Out', this)" class="date-chip flex-shrink-0 w-14 py-2.5 rounded-2xl bg-luxury-card border border-luxury-border text-luxury-muted font-bold flex flex-col items-center justify-center cursor-pointer hover:border-luxury-gold/40 transition-all">
+            <span class="text-[10px] uppercase font-semibold">TER</span>
+            <span class="text-base text-white font-bold leading-none mt-0.5">27</span>
+          </div>
+          <div onclick="selectDate('Quarta', '28 Out', this)" class="date-chip flex-shrink-0 w-14 py-2.5 rounded-2xl bg-luxury-card border border-luxury-border text-luxury-muted font-bold flex flex-col items-center justify-center cursor-pointer hover:border-luxury-gold/40 transition-all">
+            <span class="text-[10px] uppercase font-semibold">QUA</span>
+            <span class="text-base text-white font-bold leading-none mt-0.5">28</span>
+          </div>
+          <div onclick="selectDate('Quinta', '29 Out', this)" class="date-chip flex-shrink-0 w-14 py-2.5 rounded-2xl bg-luxury-card border border-luxury-border text-luxury-muted font-bold flex flex-col items-center justify-center cursor-pointer hover:border-luxury-gold/40 transition-all">
+            <span class="text-[10px] uppercase font-semibold">QUI</span>
+            <span class="text-base text-white font-bold leading-none mt-0.5">29</span>
+          </div>
+        </div>
+
+        <!-- Time Slots Grid -->
+        <div class="grid grid-cols-4 gap-2 mt-3" id="timeSlotsContainer">
+          <button onclick="selectTime('09:00', this)" class="time-slot py-2 rounded-xl text-xs font-semibold bg-luxury-card border border-luxury-border text-white hover:border-luxury-gold/60 transition-all">09:00</button>
+          <button onclick="selectTime('10:30', this)" class="time-slot py-2 rounded-xl text-xs font-semibold bg-luxury-card border border-luxury-border text-white hover:border-luxury-gold/60 transition-all">10:30</button>
+          <button onclick="selectTime('14:00', this)" class="time-slot active py-2 rounded-xl text-xs font-bold bg-luxury-gold text-luxury-bg shadow-sm transition-all">14:00</button>
+          <button onclick="selectTime('15:15', this)" class="time-slot py-2 rounded-xl text-xs font-semibold bg-luxury-card border border-luxury-border text-white hover:border-luxury-gold/60 transition-all">15:15</button>
+          <button onclick="selectTime('16:45', this)" class="time-slot py-2 rounded-xl text-xs font-semibold bg-luxury-card border border-luxury-border text-white hover:border-luxury-gold/60 transition-all">16:45</button>
+          <button onclick="selectTime('18:00', this)" class="time-slot py-2 rounded-xl text-xs font-semibold bg-luxury-card border border-luxury-border text-white hover:border-luxury-gold/60 transition-all">18:00</button>
+          <button onclick="selectTime('19:15', this)" class="time-slot py-2 rounded-xl text-xs font-semibold bg-luxury-card border border-luxury-border text-white hover:border-luxury-gold/60 transition-all">19:15</button>
+          <button disabled class="py-2 rounded-xl text-xs font-semibold bg-luxury-card/30 border border-luxury-border/30 text-luxury-muted/40 cursor-not-allowed">20:00</button>
+        </div>
+      </div>
+
+      <!-- Quick Identification Box (Phone & Name - No Password Friction) -->
+      <div class="px-5 pt-4 pb-4">
+        <div class="p-3.5 rounded-2xl bg-luxury-card border border-luxury-border/80">
+          <div class="flex items-center gap-2 mb-2">
+            <i class="ph-bold ph-whatsapp-logo text-emerald-400 text-base"></i>
+            <span class="text-xs font-bold text-white">Receba a confirmação no WhatsApp</span>
+          </div>
+          <div class="space-y-2">
+            <input type="text" id="clientNameInput" placeholder="Seu Nome Completo" value="Lucas Mendes"
+              class="w-full bg-luxury-bg text-xs text-white px-3.5 py-2.5 rounded-xl border border-luxury-border focus:border-luxury-gold outline-none transition-all placeholder:text-luxury-muted">
+            <input type="tel" id="clientPhoneInput" placeholder="Seu WhatsApp (ex: 11 99999-9999)" value="(11) 98765-4321"
+              class="w-full bg-luxury-bg text-xs text-white px-3.5 py-2.5 rounded-xl border border-luxury-border focus:border-luxury-gold outline-none transition-all placeholder:text-luxury-muted">
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- FIXED LUXURY CHECKOUT BAR (Client Mode) -->
+    <div id="clientBottomBar" class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-[#121216]/95 backdrop-blur-md border-t border-luxury-border p-4 z-40 flex items-center justify-between">
+      <div>
+        <span class="text-[10px] uppercase font-bold tracking-wider text-luxury-muted">Total a pagar</span>
+        <div class="flex items-baseline gap-1">
+          <span class="text-xl font-extrabold text-white" id="clientTotalPrice">R$ 55,00</span>
+          <span class="text-[10px] text-luxury-muted">(no balcão)</span>
+        </div>
+      </div>
+      <button onclick="confirmClientBooking()" class="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-luxury-gold to-luxury-goldDark text-luxury-bg font-extrabold text-xs tracking-wider uppercase flex items-center gap-2 gold-glow hover:brightness-110 active:scale-95 transition-all">
+        <span>Agendar Horário</span>
+        <i class="ph-bold ph-arrow-right text-sm"></i>
+      </button>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 2: BARBER OPERATIONAL PWA -->
+    <!-- ========================================================================= -->
+    <main id="viewBarber" class="flex-1 flex flex-col hidden transition-opacity duration-300">
+      
+      <!-- Barber Header Info -->
+      <div class="px-5 pt-4 pb-2">
+        <div class="p-4 rounded-3xl bg-gradient-to-br from-luxury-card to-[#1F1F26] border border-luxury-border/80 shadow-lg relative overflow-hidden">
+          <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-luxury-gold/5 rounded-full blur-xl pointer-events-none"></div>
+          
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="relative">
+                <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80" alt="Barbeiro" class="w-13 h-13 w-12 h-12 rounded-2xl object-cover border-2 border-luxury-gold/60">
+                <span class="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-luxury-bg"></span>
+              </div>
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <h2 class="text-sm font-bold text-white">Marcus Rocha</h2>
+                  <span class="text-[9px] px-2 py-0.5 rounded-md bg-luxury-gold/20 text-luxury-gold font-bold">CADEIRA 01</span>
+                </div>
+                <div class="flex items-center gap-2 mt-1">
+                  <!-- Toggle Barber Status -->
+                  <button onclick="toggleBarberStatus(this)" class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Disponível</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <button onclick="showToast('Sincronizado com Evolution API & PocketBase')" class="w-9 h-9 rounded-xl bg-luxury-bg/80 border border-luxury-border text-luxury-muted flex items-center justify-center hover:text-white">
+              <i class="ph-bold ph-arrows-clockwise text-base"></i>
+            </button>
+          </div>
+
+          <!-- Quick Metrics Bar (Hoje) -->
+          <div class="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-luxury-border/50">
+            <div class="bg-luxury-bg/60 p-2.5 rounded-xl border border-luxury-border/40">
+              <span class="text-[10px] text-luxury-muted uppercase font-semibold">Cortes Hoje</span>
+              <div class="flex items-baseline gap-1 mt-0.5">
+                <span class="text-lg font-extrabold text-white" id="barberCutCount">6</span>
+                <span class="text-[10px] text-luxury-muted">/ 9 agendados</span>
+              </div>
+            </div>
+            <div class="bg-luxury-bg/60 p-2.5 rounded-xl border border-luxury-border/40">
+              <span class="text-[10px] text-luxury-muted uppercase font-semibold">Sua Comissão (Est.)</span>
+              <div class="flex items-baseline gap-1 mt-0.5">
+                <span class="text-lg font-extrabold text-luxury-gold">R$ 215,00</span>
+                <span class="text-[10px] text-emerald-400 font-semibold">(50%)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Date selector for Barber Agenda -->
+      <div class="px-5 pt-2">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold uppercase tracking-wider text-luxury-muted">Agenda dos Atendimentos</span>
+          <span class="text-[11px] text-luxury-gold font-medium">Hoje (Sábado)</span>
+        </div>
+        
+        <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+          <button class="px-4 py-2 rounded-xl text-xs font-bold bg-luxury-gold text-luxury-bg">Hoje</button>
+          <button class="px-4 py-2 rounded-xl text-xs font-semibold bg-luxury-card border border-luxury-border text-luxury-muted hover:text-white">Amanhã</button>
+          <button class="px-4 py-2 rounded-xl text-xs font-semibold bg-luxury-card border border-luxury-border text-luxury-muted hover:text-white">Segunda</button>
+        </div>
+      </div>
+
+      <!-- Barber Timeline List -->
+      <div class="px-5 pt-3 space-y-3 pb-6">
+
+        <!-- Appointment 1: In Progress -->
+        <div class="p-3.5 rounded-2xl bg-luxury-card border-l-4 border-l-luxury-gold border-y border-r border-luxury-border relative shadow-sm">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-extrabold text-luxury-gold bg-luxury-gold/10 px-2 py-0.5 rounded-md">14:00 - 14:45</span>
+              <span class="text-[10px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-md flex items-center gap-1">
+                <i class="ph-fill ph-chair"></i> Na Cadeira
+              </span>
+            </div>
+            <span class="text-xs font-bold text-white">R$ 90,00</span>
+          </div>
+
+          <div class="mt-2.5 flex items-center justify-between">
+            <div>
+              <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+                Rodrigo Fontes
+                <span class="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.2 rounded font-bold">VIP CLUB</span>
+              </h4>
+              <p class="text-[11px] text-luxury-muted mt-0.5">Combo Royal (Corte + Barba)</p>
+            </div>
+            <a href="https://wa.me/5511999999999" target="_blank" class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center hover:bg-emerald-500/20">
+              <i class="ph-bold ph-whatsapp-logo text-base"></i>
+            </a>
+          </div>
+
+          <div class="mt-3 pt-2.5 border-t border-luxury-border flex items-center gap-2">
+            <button onclick="openComandaModal('Rodrigo Fontes', 'Combo Royal')" class="flex-1 py-2 rounded-xl bg-luxury-bg border border-luxury-border hover:border-luxury-gold/60 text-[11px] font-bold text-luxury-gold flex items-center justify-center gap-1.5 active:scale-95 transition-all">
+              <i class="ph-bold ph-plus-circle"></i> + Comanda / Extra
+            </button>
+            <button onclick="finishService(this)" class="flex-1 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 text-[11px] font-bold text-white flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-sm">
+              <i class="ph-bold ph-check"></i> Finalizar Corte
+            </button>
+          </div>
+        </div>
+
+        <!-- Appointment 2: Next (Confirmed WhatsApp) -->
+        <div class="p-3.5 rounded-2xl bg-luxury-card border border-luxury-border relative">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-extrabold text-white bg-black/40 px-2 py-0.5 rounded-md">15:00 - 15:40</span>
+              <span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-md flex items-center gap-1">
+                <i class="ph-bold ph-check-circle"></i> WhatsApp Confirmado
+              </span>
+            </div>
+            <span class="text-xs font-bold text-luxury-muted">R$ 55,00</span>
+          </div>
+
+          <div class="mt-2.5 flex items-center justify-between">
+            <div>
+              <h4 class="text-xs font-bold text-white">Mateus Oliveira</h4>
+              <p class="text-[11px] text-luxury-muted mt-0.5">Classic Haircut Fade</p>
+            </div>
+            <span class="text-[10px] text-luxury-muted">Aguardando chegada</span>
+          </div>
+
+          <div class="mt-3 pt-2.5 border-t border-luxury-border flex items-center gap-2">
+            <button onclick="startService(this)" class="w-full py-2 rounded-xl bg-luxury-gold/20 border border-luxury-gold/50 text-[11px] font-bold text-luxury-gold flex items-center justify-center gap-1.5 hover:bg-luxury-gold/30 active:scale-95 transition-all">
+              <i class="ph-bold ph-play"></i> Iniciar Atendimento
+            </button>
+          </div>
+        </div>
+
+        <!-- Appointment 3: Later today -->
+        <div class="p-3.5 rounded-2xl bg-luxury-card/60 border border-luxury-border/60 relative">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-luxury-muted bg-black/30 px-2 py-0.5 rounded-md">16:00 - 16:35</span>
+            <span class="text-[10px] text-luxury-muted flex items-center gap-1">
+              <i class="ph-bold ph-clock"></i> Em 2 horas
+            </span>
+          </div>
+
+          <div class="mt-2 flex items-center justify-between">
+            <div>
+              <h4 class="text-xs font-bold text-white/90">Carlos Alberto Jr.</h4>
+              <p class="text-[11px] text-luxury-muted mt-0.5">Barba Terapia Completa</p>
+            </div>
+            <span class="text-xs font-semibold text-luxury-muted">R$ 45,00</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Quick Walk-in Button (+ Encaixe Rápido) -->
+      <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-[#121216]/95 backdrop-blur-md border-t border-luxury-border p-4 z-40">
+        <button onclick="openWalkInModal()" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-luxury-gold to-luxury-goldDark text-luxury-bg font-extrabold text-xs tracking-wider uppercase flex items-center justify-center gap-2 gold-glow hover:brightness-110 active:scale-95 transition-all">
+          <i class="ph-bold ph-plus-circle text-base"></i>
+          <span>+ Encaixe Rápido na Cadeira</span>
+        </button>
+      </div>
+
+    </main>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 3: OWNER MOBILE EXECUTIVE DASHBOARD -->
+    <!-- ========================================================================= -->
+    <main id="viewOwner" class="flex-1 flex flex-col hidden transition-opacity duration-300">
+      
+      <!-- Executive Header -->
+      <div class="px-5 pt-4 pb-2">
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="text-[10px] uppercase tracking-wider text-luxury-gold font-bold">Painel do Proprietário</span>
+            <h2 class="text-lg font-black text-white">Dom Naville Club</h2>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Online
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Financial KPI Card (High-Impact Luxury) -->
+      <div class="px-5 pt-2">
+        <div class="p-4 rounded-3xl bg-gradient-to-br from-[#261E14] via-[#1A1817] to-luxury-card border border-luxury-gold/40 shadow-xl relative overflow-hidden">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-luxury-muted uppercase">Faturamento Hoje</span>
+            <span class="text-[10px] font-bold text-luxury-gold bg-luxury-gold/20 px-2 py-0.5 rounded-md">+18% vs ontem</span>
+          </div>
+          <div class="mt-2 flex items-baseline gap-1">
+            <span class="text-3xl font-black text-white tracking-tight">R$ 1.840</span>
+            <span class="text-sm font-bold text-luxury-gold">,00</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-luxury-border/60 text-center">
+            <div>
+              <span class="text-[9px] text-luxury-muted uppercase block">Cortes Hoje</span>
+              <span class="text-sm font-bold text-white">28</span>
+            </div>
+            <div>
+              <span class="text-[9px] text-luxury-muted uppercase block">Ticket Médio</span>
+              <span class="text-sm font-bold text-luxury-gold">R$ 65,70</span>
+            </div>
+            <div>
+              <span class="text-[9px] text-luxury-muted uppercase block">Ocupação</span>
+              <span class="text-sm font-bold text-emerald-400">82%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Real-Time Chairs Occupation -->
+      <div class="px-5 pt-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-luxury-muted">Status das Cadeiras Agora</h3>
+          <span class="text-[11px] text-luxury-gold">3 em atendimento</span>
+        </div>
+
+        <div class="space-y-2">
+          <!-- Chair 1 -->
+          <div class="p-3 rounded-2xl bg-luxury-card border border-luxury-border flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-2.5 h-2.5 rounded-full bg-emerald-400"></div>
+              <div>
+                <h4 class="text-xs font-bold text-white">Marcus Rocha <span class="text-luxury-muted font-normal text-[10px]">(Cadeira 1)</span></h4>
+                <p class="text-[10px] text-luxury-muted">Atendendo Rodrigo Fontes • Combo Royal</p>
+              </div>
+            </div>
+            <span class="text-xs font-bold text-luxury-gold">R$ 90</span>
+          </div>
+
+          <!-- Chair 2 -->
+          <div class="p-3 rounded-2xl bg-luxury-card border border-luxury-border flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-2.5 h-2.5 rounded-full bg-emerald-400"></div>
+              <div>
+                <h4 class="text-xs font-bold text-white">André Silva <span class="text-luxury-muted font-normal text-[10px]">(Cadeira 2)</span></h4>
+                <p class="text-[10px] text-luxury-muted">Atendendo Pedro Gusmão • Barba</p>
+              </div>
+            </div>
+            <span class="text-xs font-bold text-luxury-gold">R$ 45</span>
+          </div>
+
+          <!-- Chair 3 -->
+          <div class="p-3 rounded-2xl bg-luxury-card border border-luxury-border flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-2.5 h-2.5 rounded-full bg-amber-400"></div>
+              <div>
+                <h4 class="text-xs font-bold text-white">Felipe Duarte <span class="text-luxury-muted font-normal text-[10px]">(Cadeira 3)</span></h4>
+                <p class="text-[10px] text-luxury-muted">Limpando bancada • Livre para encaixe</p>
+              </div>
+            </div>
+            <span class="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded">LIVRE</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Subscription Club Quick Metric & Upsell -->
+      <div class="px-5 pt-4 pb-6">
+        <div class="p-3.5 rounded-2xl bg-gradient-to-r from-luxury-card to-[#1C1A22] border border-purple-500/30 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center text-lg">
+              <i class="ph-bold ph-crown"></i>
+            </div>
+            <div>
+              <h4 class="text-xs font-bold text-white">Assinantes VIP Ativos</h4>
+              <p class="text-[10px] text-luxury-muted">42 clientes pagando no automático</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-sm font-extrabold text-purple-300">R$ 3.738</span>
+            <span class="text-[9px] text-luxury-muted block">Recorrência/Mês</span>
+          </div>
+        </div>
+
+        <!-- WhatsApp Automation Status (Evolution API health) -->
+        <div class="mt-3 p-3 rounded-2xl bg-luxury-card border border-luxury-border flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <i class="ph-fill ph-whatsapp-logo text-emerald-400 text-lg"></i>
+            <div>
+              <span class="text-xs font-bold text-white">Robô WhatsApp (Evolution API)</span>
+              <p class="text-[10px] text-luxury-muted">26 lembretes anti-furo disparados hoje</p>
+            </div>
+          </div>
+          <span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">100% Ativo</span>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ========================================================================= -->
+    <!-- INTERACTIVE MODALS -->
+    <!-- ========================================================================= -->
+
+    <!-- Modal 1: Consultar Meus Cortes (Sem Senha, busca por Telefone) -->
+    <div id="modalClientHistory" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-all">
+      <div class="w-full max-w-md bg-luxury-card border border-luxury-border rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl max-h-[85vh] overflow-y-auto">
+        <div class="flex items-center justify-between pb-3 border-b border-luxury-border">
+          <div class="flex items-center gap-2">
+            <i class="ph-bold ph-clock-counter-clockwise text-luxury-gold text-lg"></i>
+            <h3 class="text-sm font-bold text-white">Meus Agendamentos & Histórico</h3>
+          </div>
+          <button onclick="closeClientHistoryModal()" class="w-8 h-8 rounded-full bg-luxury-bg text-luxury-muted hover:text-white flex items-center justify-center">
+            <i class="ph-bold ph-x"></i>
+          </button>
+        </div>
+
+        <div class="mt-4">
+          <label class="text-[11px] text-luxury-muted font-medium block mb-1">Informe seu WhatsApp para consultar:</label>
+          <div class="flex gap-2">
+            <input type="tel" id="searchPhoneModal" value="(11) 98765-4321" class="flex-1 bg-luxury-bg text-xs text-white px-3 py-2.5 rounded-xl border border-luxury-border outline-none focus:border-luxury-gold">
+            <button onclick="searchAppointments()" class="px-3.5 py-2.5 rounded-xl bg-luxury-gold text-luxury-bg font-bold text-xs hover:brightness-110">Buscar</button>
+          </div>
+        </div>
+
+        <div class="mt-4 space-y-2.5" id="appointmentResultsList">
+          <!-- Active Next Cut -->
+          <div class="p-3 rounded-2xl bg-luxury-bg border border-luxury-gold/40">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-bold text-luxury-gold bg-luxury-gold/15 px-2 py-0.5 rounded">PRÓXIMO AGENDAMENTO</span>
+              <span class="text-xs font-bold text-white">Hoje, 14:00</span>
+            </div>
+            <h4 class="text-xs font-bold text-white mt-2">Classic Haircut Fade</h4>
+            <p class="text-[11px] text-luxury-muted">Barbeiro: Marcus Rocha • R$ 55,00</p>
+            <div class="mt-2.5 pt-2 border-t border-luxury-border flex items-center justify-between">
+              <span class="text-[10px] text-emerald-400 flex items-center gap-1"><i class="ph-bold ph-check"></i> Lembrete enviado no WhatsApp</span>
+              <button onclick="cancelAppointmentPrompt()" class="text-[10px] text-rose-400 font-bold hover:underline">Reagendar / Cancelar</button>
+            </div>
+          </div>
+
+          <!-- History Item -->
+          <div class="p-3 rounded-2xl bg-luxury-bg/50 border border-luxury-border/60">
+            <div class="flex items-center justify-between text-luxury-muted">
+              <span class="text-[10px]">10 Outubro • Concluído</span>
+              <span class="text-xs font-semibold">R$ 90,00</span>
+            </div>
+            <h4 class="text-xs font-bold text-white/80 mt-1">Combo Royal Experience</h4>
+            <p class="text-[10px] text-luxury-muted">Barbeiro: Marcus Rocha</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 2: Adicionar Comanda / Produto Extra (Barbeiro) -->
+    <div id="modalComanda" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-all">
+      <div class="w-full max-w-md bg-luxury-card border border-luxury-border rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl">
+        <div class="flex items-center justify-between pb-3 border-b border-luxury-border">
+          <div>
+            <h3 class="text-sm font-bold text-white" id="comandaClientTitle">Comanda do Cliente</h3>
+            <span class="text-[11px] text-luxury-gold" id="comandaServiceTitle">Serviço Base</span>
+          </div>
+          <button onclick="closeComandaModal()" class="w-8 h-8 rounded-full bg-luxury-bg text-luxury-muted hover:text-white flex items-center justify-center">
+            <i class="ph-bold ph-x"></i>
+          </button>
+        </div>
+
+        <div class="mt-4">
+          <label class="text-[11px] text-luxury-muted uppercase font-semibold block mb-2">Lançar Produtos / Extras Rápidos:</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="addExtraToComanda('Pomada Matte Premium', 35)" class="p-2.5 rounded-xl bg-luxury-bg border border-luxury-border hover:border-luxury-gold/50 text-left transition-all">
+              <span class="text-xs font-bold text-white block">Pomada Matte</span>
+              <span class="text-[10px] text-luxury-gold">+ R$ 35,00</span>
+            </button>
+            <button onclick="addExtraToComanda('Cerveja Artesanal IPA', 16)" class="p-2.5 rounded-xl bg-luxury-bg border border-luxury-border hover:border-luxury-gold/50 text-left transition-all">
+              <span class="text-xs font-bold text-white block">Cerveja IPA</span>
+              <span class="text-[10px] text-luxury-gold">+ R$ 16,00</span>
+            </button>
+            <button onclick="addExtraToComanda('Pente de Madeira Dom', 22)" class="p-2.5 rounded-xl bg-luxury-bg border border-luxury-border hover:border-luxury-gold/50 text-left transition-all">
+              <span class="text-xs font-bold text-white block">Pente Madeira</span>
+              <span class="text-[10px] text-luxury-gold">+ R$ 22,00</span>
+            </button>
+            <button onclick="addExtraToComanda('Sobrancelha Navalhada', 20)" class="p-2.5 rounded-xl bg-luxury-bg border border-luxury-border hover:border-luxury-gold/50 text-left transition-all">
+              <span class="text-xs font-bold text-white block">Sobrancelha</span>
+              <span class="text-[10px] text-luxury-gold">+ R$ 20,00</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-4 p-3 rounded-xl bg-black/40 border border-luxury-border">
+          <span class="text-[10px] text-luxury-muted uppercase font-semibold">Itens na Comanda:</span>
+          <div id="comandaItemsList" class="mt-1 space-y-1 text-xs text-white">
+            <div class="flex justify-between"><span>Serviço Agendado</span><span id="baseServiceVal">R$ 90,00</span></div>
+          </div>
+          <div class="mt-2 pt-2 border-t border-luxury-border flex justify-between font-bold text-luxury-gold text-sm">
+            <span>Total da Comanda:</span>
+            <span id="comandaTotalVal">R$ 90,00</span>
+          </div>
+        </div>
+
+        <button onclick="saveComanda()" class="w-full mt-4 py-3 rounded-2xl bg-luxury-gold text-luxury-bg font-extrabold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all">
+          Atualizar Comanda
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal 3: Encaixe Rápido de Balcão (Walk-in) -->
+    <div id="modalWalkIn" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-all">
+      <div class="w-full max-w-md bg-luxury-card border border-luxury-border rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl">
+        <div class="flex items-center justify-between pb-3 border-b border-luxury-border">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="ph-bold ph-lightning text-luxury-gold"></i> Encaixe Rápido na Cadeira
+          </h3>
+          <button onclick="closeWalkInModal()" class="w-8 h-8 rounded-full bg-luxury-bg text-luxury-muted hover:text-white flex items-center justify-center">
+            <i class="ph-bold ph-x"></i>
+          </button>
+        </div>
+
+        <div class="mt-3 space-y-3">
+          <div>
+            <label class="text-[10px] text-luxury-muted uppercase font-bold block mb-1">Nome do Cliente (opcional)</label>
+            <input type="text" id="walkInName" placeholder="Ex: Cliente sem agendamento" class="w-full bg-luxury-bg text-xs text-white px-3 py-2.5 rounded-xl border border-luxury-border outline-none focus:border-luxury-gold">
+          </div>
+          <div>
+            <label class="text-[10px] text-luxury-muted uppercase font-bold block mb-1">Serviço Imediato</label>
+            <select id="walkInService" class="w-full bg-luxury-bg text-xs text-white px-3 py-2.5 rounded-xl border border-luxury-border outline-none focus:border-luxury-gold">
+              <option value="55">Classic Haircut Fade (R$ 55)</option>
+              <option value="45">Barba Terapia (R$ 45)</option>
+              <option value="90">Combo Royal (R$ 90)</option>
+            </select>
+          </div>
+        </div>
+
+        <button onclick="confirmWalkIn()" class="w-full mt-4 py-3 rounded-2xl bg-luxury-gold text-luxury-bg font-extrabold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all">
+          Iniciar Atendimento Agora
+        </button>
+      </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-[#1F1F26] border border-luxury-gold text-white text-xs px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2 pointer-events-none opacity-0 transition-opacity duration-300">
+      <i class="ph-fill ph-check-circle text-luxury-gold text-base"></i>
+      <span id="toastMsg">Ação concluída com sucesso!</span>
+    </div>
+
+  </div>
+
+  <!-- JAVASCRIPT APPLICATION LOGIC -->
+  <script>
+    // State Management
+    let currentRole = 'client';
+    let selectedServiceName = 'Classic Haircut Fade';
+    let selectedServicePrice = 55;
+    let selectedBarber = 'Qualquer Barbeiro';
+    let selectedDate = 'Hoje, 24 Out';
+    let selectedTime = '14:00';
+    let activeSlide = 0;
+    let comandaTotal = 90;
+
+    // View Switcher Function
+    function switchView(role) {
+      currentRole = role;
+
+      const viewClient = document.getElementById('viewClient');
+      const viewBarber = document.getElementById('viewBarber');
+      const viewOwner = document.getElementById('viewOwner');
+      const clientBottomBar = document.getElementById('clientBottomBar');
+      const badge = document.getElementById('currentViewBadge');
+
+      const btnClient = document.getElementById('tabBtnClient');
+      const btnBarber = document.getElementById('tabBtnBarber');
+      const btnOwner = document.getElementById('tabBtnOwner');
+
+      // Reset Tab Styles
+      [btnClient, btnBarber, btnOwner].forEach(btn => {
+        btn.className = "py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all text-luxury-muted hover:text-white";
+      });
+
+      // Hide all views first
+      viewClient.classList.add('hidden');
+      viewBarber.classList.add('hidden');
+      viewOwner.classList.add('hidden');
+      clientBottomBar.classList.add('hidden');
+
+      if (role === 'client') {
+        viewClient.classList.remove('hidden');
+        clientBottomBar.classList.remove('hidden');
+        badge.innerText = 'Cliente (Agendamento)';
+        badge.className = 'text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-luxury-gold/10 text-luxury-gold border border-luxury-gold/30';
+        btnClient.className = "py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all bg-luxury-gold text-luxury-bg shadow-sm";
+      } else if (role === 'barber') {
+        viewBarber.classList.remove('hidden');
+        badge.innerText = 'Barbeiro (PWA)';
+        badge.className = 'text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+        btnBarber.className = "py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all bg-luxury-gold text-luxury-bg shadow-sm";
+      } else if (role === 'owner') {
+        viewOwner.classList.remove('hidden');
+        badge.innerText = 'Dono (Gestão Mobile)';
+        badge.className = 'text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/30';
+        btnOwner.className = "py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all bg-luxury-gold text-luxury-bg shadow-sm";
+      }
+    }
+
+    // Carousel Functions
+    function setSlide(index) {
+      activeSlide = index;
+      const carousel = document.getElementById('promoCarousel');
+      const dot0 = document.getElementById('dot0');
+      const dot1 = document.getElementById('dot1');
+
+      carousel.style.transform = `translateX(-${index * 100}%)`;
+      if (index === 0) {
+        dot0.className = "w-5 h-1.5 rounded-full bg-luxury-gold transition-all";
+        dot1.className = "w-2 h-1.5 rounded-full bg-luxury-border transition-all";
+      } else {
+        dot0.className = "w-2 h-1.5 rounded-full bg-luxury-border transition-all";
+        dot1.className = "w-5 h-1.5 rounded-full bg-luxury-gold transition-all";
+      }
+    }
+
+    // Category Filter
+    function filterCategory(cat) {
+      document.querySelectorAll('.cat-pill').forEach(pill => {
+        pill.classList.remove('bg-luxury-gold', 'text-luxury-bg');
+        pill.classList.add('bg-luxury-card', 'text-luxury-muted');
+      });
+      const activePill = document.getElementById(`cat-${cat}`);
+      if (activePill) {
+        activePill.classList.remove('bg-luxury-card', 'text-luxury-muted');
+        activePill.classList.add('bg-luxury-gold', 'text-luxury-bg');
+      }
+
+      const items = document.querySelectorAll('.service-item');
+      items.forEach(item => {
+        if (cat === 'todos' || item.getAttribute('data-category') === cat) {
+          item.style.display = 'flex';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    }
+
+    // Live search filter
+    function filterServices(val) {
+      const query = val.toLowerCase();
+      document.querySelectorAll('.service-item').forEach(item => {
+        const title = item.querySelector('h4').innerText.toLowerCase();
+        if (title.includes(query)) {
+          item.style.display = 'flex';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    }
+
+    // Selection Handlers (Client Mode)
+    function selectService(name, price, duration, element) {
+      selectedServiceName = name;
+      selectedServicePrice = price;
+
+      document.querySelectorAll('.service-item').forEach(el => {
+        el.classList.remove('border-luxury-gold', 'bg-[#1F1D24]');
+        el.querySelector('.inner-dot').classList.add('hidden');
+      });
+
+      element.classList.add('border-luxury-gold', 'bg-[#1F1D24]');
+      element.querySelector('.inner-dot').classList.remove('hidden');
+
+      document.getElementById('selectedServiceBadge').innerText = `${name} (${duration})`;
+      document.getElementById('clientTotalPrice').innerText = `R$ ${price},00`;
+      showToast(`Serviço selecionado: ${name}`);
+    }
+
+    // Cover Image Switcher (Ambience gallery demo)
+    const coverPhotos = [
+      "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1512690459411-b9245aed614b?auto=format&fit=crop&w=800&q=80"
+    ];
+    let currentPhotoIdx = 0;
+
+    function cycleCoverPhoto() {
+      currentPhotoIdx = (currentPhotoIdx + 1) % coverPhotos.length;
+      document.getElementById('barbershopCoverImg').src = coverPhotos[currentPhotoIdx];
+      showToast("Foto do ambiente atualizada");
+    }
+
+    function toggleFavorite(btn) {
+      const icon = btn.querySelector('i');
+      if (icon.classList.contains('ph-fill')) {
+        icon.classList.remove('ph-fill', 'text-rose-500');
+        icon.classList.add('ph-bold');
+        showToast("Removido dos favoritos");
+      } else {
+        icon.classList.remove('ph-bold');
+        icon.classList.add('ph-fill', 'text-rose-500');
+        showToast("Salvo nos seus favoritos!");
+      }
+    }
+
+    function shareBarbershop() {
+      if (navigator.share) {
+        navigator.share({
+          title: 'Naville Heritage Barbershop',
+          text: 'Agende seu corte na melhor barbearia!',
+          url: window.location.href
+        }).catch(() => {});
+      } else {
+        document.execCommand('copy');
+        showToast("Link copiado para compartilhar!");
+      }
+    }
+
+    function selectQuickPromo(name, price) {
+      selectedServiceName = name;
+      selectedServicePrice = price;
+      document.getElementById('selectedServiceBadge').innerText = name;
+      document.getElementById('clientTotalPrice').innerText = `R$ ${price},00`;
+      showToast(`Promoção aplicada: ${name}`);
+    }
+
+    function selectBarber(name, exp, element) {
+      selectedBarber = name;
+      document.querySelectorAll('.barber-avatar-card > div').forEach(card => {
+        card.classList.remove('border-luxury-gold');
+        card.classList.add('border-transparent');
+      });
+      element.querySelector('div').classList.add('border-luxury-gold');
+      element.querySelector('div').classList.remove('border-transparent');
+      document.getElementById('selectedBarberName').innerText = name;
+      showToast(`Barbeiro selecionado: ${name}`);
+    }
+
+    function selectDate(dayName, dateStr, element) {
+      selectedDate = `${dayName}, ${dateStr}`;
+      document.querySelectorAll('.date-chip').forEach(chip => {
+        chip.className = "date-chip flex-shrink-0 w-14 py-2.5 rounded-2xl bg-luxury-card border border-luxury-border text-luxury-muted font-bold flex flex-col items-center justify-center cursor-pointer hover:border-luxury-gold/40 transition-all";
+      });
+      element.className = "date-chip active flex-shrink-0 w-14 py-2.5 rounded-2xl bg-luxury-gold text-luxury-bg font-bold flex flex-col items-center justify-center cursor-pointer transition-all shadow-md";
+      updateDateTimeLabel();
+    }
+
+    function selectTime(time, element) {
+      selectedTime = time;
+      document.querySelectorAll('.time-slot').forEach(slot => {
+        slot.className = "time-slot py-2 rounded-xl text-xs font-semibold bg-luxury-card border border-luxury-border text-white hover:border-luxury-gold/60 transition-all";
+      });
+      element.className = "time-slot active py-2 rounded-xl text-xs font-bold bg-luxury-gold text-luxury-bg shadow-sm transition-all";
+      updateDateTimeLabel();
+    }
+
+    function updateDateTimeLabel() {
+      document.getElementById('selectedDateTimeLabel').innerText = `${selectedDate} às ${selectedTime}`;
+    }
+
+    // Modal Controls
+    function openClientHistoryModal() {
+      document.getElementById('modalClientHistory').classList.remove('hidden');
+    }
+    function closeClientHistoryModal() {
+      document.getElementById('modalClientHistory').classList.add('hidden');
+    }
+
+    function openComandaModal(clientName, serviceName) {
+      document.getElementById('comandaClientTitle').innerText = `Comanda: ${clientName}`;
+      document.getElementById('comandaServiceTitle').innerText = serviceName;
+      document.getElementById('modalComanda').classList.remove('hidden');
+    }
+    function closeComandaModal() {
+      document.getElementById('modalComanda').classList.add('hidden');
+    }
+
+    function addExtraToComanda(prodName, prodPrice) {
+      const container = document.getElementById('comandaItemsList');
+      const itemRow = document.createElement('div');
+      itemRow.className = "flex justify-between text-luxury-gold";
+      itemRow.innerHTML = `<span>+ ${prodName}</span><span>R$ ${prodPrice},00</span>`;
+      container.appendChild(itemRow);
+
+      comandaTotal += prodPrice;
+      document.getElementById('comandaTotalVal').innerText = `R$ ${comandaTotal},00`;
+      showToast(`Adicionado: ${prodName}`);
+    }
+
+    function saveComanda() {
+      closeComandaModal();
+      showToast(`Comanda atualizada no balcão: R$ ${comandaTotal},00`);
+    }
+
+    function openWalkInModal() {
+      document.getElementById('modalWalkIn').classList.remove('hidden');
+    }
+    function closeWalkInModal() {
+      document.getElementById('modalWalkIn').classList.add('hidden');
+    }
+
+    function confirmWalkIn() {
+      const name = document.getElementById('walkInName').value || 'Cliente de Encaixe';
+      closeWalkInModal();
+      showToast(`Encaixe iniciado: ${name} na cadeira!`);
+      const countEl = document.getElementById('barberCutCount');
+      countEl.innerText = parseInt(countEl.innerText) + 1;
+    }
+
+    // Barber Actions
+    function toggleBarberStatus(btn) {
+      if (btn.innerText.includes('Disponível')) {
+        btn.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span><span>Pausa / Almoço</span>';
+        btn.className = "text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1";
+        showToast('Status: Em Pausa');
+      } else {
+        btn.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span>Disponível</span>';
+        btn.className = "text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1";
+        showToast('Status: Disponível na Cadeira');
+      }
+    }
+
+    function startService(btn) {
+      btn.innerText = 'Atendimento em Andamento...';
+      btn.className = 'w-full py-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-bold';
+      showToast('Cronômetro do corte iniciado');
+    }
+
+    function finishService(btn) {
+      const card = btn.closest('.p-3.5');
+      card.style.opacity = '0.4';
+      btn.innerText = 'Concluído';
+      btn.disabled = true;
+      showToast('Corte finalizado com sucesso! Comissão creditada.');
+    }
+
+    // Confirm Booking Flow
+    function confirmClientBooking() {
+      const name = document.getElementById('clientNameInput').value;
+      const phone = document.getElementById('clientPhoneInput').value;
+
+      if (!phone) {
+        showToast('Por favor, informe seu WhatsApp para o lembrete.');
+        return;
+      }
+
+      showToast(`Horário reservado para ${name}! Enviamos a confirmação no WhatsApp.`);
+      setTimeout(() => {
+        openClientHistoryModal();
+      }, 1200);
+    }
+
+    function searchAppointments() {
+      showToast('Histórico atualizado para este telefone.');
+    }
+
+    function cancelAppointmentPrompt() {
+      showToast('Solicitação de reagendamento enviada via WhatsApp.');
+      closeClientHistoryModal();
+    }
+
+    // Generic Toast Notification
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const msgEl = document.getElementById('toastMsg');
+      msgEl.innerText = message;
+      toast.style.opacity = '1';
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+      }, 2600);
+    }
+
+    // Initialize first state
+    window.onload = function() {
+      setSlide(0);
+    };
+  </script>
+</body>
+</html>

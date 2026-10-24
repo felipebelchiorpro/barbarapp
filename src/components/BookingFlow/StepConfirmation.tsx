@@ -1,7 +1,19 @@
 import React from 'react';
-import { Calendar, Clock, User, Phone, CheckCircle2, ShieldAlert } from 'lucide-react';
-import { Barber, Service } from '../../types';
+import { Calendar, Clock, User, Phone, CheckCircle2, ShieldAlert, Crown, AlertTriangle } from 'lucide-react';
+import { Barber, Service, ClientSubscriptionPlan } from '../../types';
 import { formatCurrency, formatDatePtBR, formatDuration } from '../../utils/formatters';
+
+const WEEKDAY_NAMES = [
+  'Domingo',
+  'Segunda-feira',
+  'Terça-feira',
+  'Quarta-feira',
+  'Quinta-feira',
+  'Sexta-feira',
+  'Sábado',
+];
+
+const WEEKDAY_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 interface StepConfirmationProps {
   services: Service[];
@@ -16,6 +28,9 @@ interface StepConfirmationProps {
   customerPhone: string;
   customerNotes: string;
   isSubmitting: boolean;
+  activeCustomerPlan?: ClientSubscriptionPlan | null;
+  isDayAllowedForPlan?: boolean;
+  selectedDayOfWeek?: number;
   onConfirm: () => void;
   onBackToStep: (stepNumber: number) => void;
 }
@@ -33,6 +48,9 @@ export const StepConfirmation: React.FC<StepConfirmationProps> = ({
   customerPhone,
   customerNotes,
   isSubmitting,
+  activeCustomerPlan,
+  isDayAllowedForPlan,
+  selectedDayOfWeek = 0,
   onConfirm,
   onBackToStep,
 }) => {
@@ -46,6 +64,55 @@ export const StepConfirmation: React.FC<StepConfirmationProps> = ({
           Revise todos os detalhes antes de concluir.
         </p>
       </div>
+
+      {/* VIP Recognition Banner */}
+      {activeCustomerPlan && (
+        isDayAllowedForPlan ? (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-[#D4AF37]/10 to-amber-500/5 border border-amber-500/30 flex items-center justify-between gap-3 text-left animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#D4AF37] text-black flex items-center justify-center font-bold shrink-0 shadow-md">
+                <Crown className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-[#D4AF37]">Membro VIP Reconhecido</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#D4AF37] text-black">
+                    {activeCustomerPlan.nome}
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-300 mt-0.5">
+                  Hoje ({WEEKDAY_NAMES[selectedDayOfWeek]}) é um dia coberto pelo seu plano! Serviços inclusos foram zerados.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-left flex items-start gap-3 animate-in fade-in">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0 mt-0.5">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                Aviso de Restrição de Dias do Plano
+              </span>
+              <p className="text-xs text-zinc-200 leading-relaxed">
+                Seu plano <strong className="text-amber-300">{activeCustomerPlan.nome}</strong> é válido apenas nos dias:{' '}
+                <strong className="text-white">
+                  {activeCustomerPlan.dias_permitidos.map((d) => WEEKDAY_SHORT[d]).join(', ')}
+                </strong>
+                . Para agendar nesta <strong className="text-white">{WEEKDAY_NAMES[selectedDayOfWeek]}</strong>, o valor avulso normal será cobrado.
+              </p>
+              <button
+                type="button"
+                onClick={() => onBackToStep(3)}
+                className="text-[11px] text-[#D4AF37] underline font-bold hover:text-amber-200 mt-1 block cursor-pointer"
+              >
+                ← Escolher outro dia coberto pelo plano
+              </button>
+            </div>
+          </div>
+        )
+      )}
 
       {/* Ticket / Receipt Card */}
       <div className="relative bg-[#18181B] border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
@@ -71,17 +138,49 @@ export const StepConfirmation: React.FC<StepConfirmationProps> = ({
               </button>
             </div>
             <div className="mt-3 space-y-2">
-              {services.map((service) => (
-                <div key={service.id} className="flex items-center justify-between text-xs sm:text-sm">
-                  <div>
-                    <span className="font-semibold text-white">{service.name}</span>
-                    <span className="text-zinc-500 text-xs ml-2">({formatDuration(service.durationMinutes)})</span>
+              {services.map((service) => {
+                const isCovered = Boolean(
+                  activeCustomerPlan &&
+                  isDayAllowedForPlan &&
+                  activeCustomerPlan.servicos_inclusos.includes(service.id)
+                );
+
+                return (
+                  <div
+                    key={service.id}
+                    className={`flex items-center justify-between text-xs sm:text-sm p-2 rounded-xl transition ${
+                      isCovered ? 'bg-amber-500/10 border border-amber-500/20' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-white">{service.name}</span>
+                      <span className="text-zinc-500 text-xs">({formatDuration(service.durationMinutes)})</span>
+                      {isCovered && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                          <Crown className="w-2.5 h-2.5 text-emerald-400" />
+                          Incluso no Plano VIP
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isCovered ? (
+                        <>
+                          <span className="line-through text-zinc-500 text-xs font-mono">
+                            {formatCurrency(service.price)}
+                          </span>
+                          <span className="font-mono text-emerald-400 font-bold">
+                            R$ 0,00
+                          </span>
+                        </>
+                      ) : (
+                        <span className="font-mono text-zinc-300 font-medium">
+                          {formatCurrency(service.price)}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <span className="font-mono text-zinc-300 font-medium">
-                    {formatCurrency(service.price)}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -181,12 +280,21 @@ export const StepConfirmation: React.FC<StepConfirmationProps> = ({
                 Tempo total: {formatDuration(totalDurationMinutes)}
               </span>
             </div>
-            <div className="text-right">
-              <span className="text-2xl sm:text-3xl font-display font-extrabold text-[#D4AF37] tabular-nums">
-                {formatCurrency(totalPrice)}
-              </span>
-              <span className="block text-[10px] text-zinc-500">Pagamento no local</span>
-            </div>
+            {totalPrice === 0 ? (
+              <div className="text-right">
+                <span className="text-2xl sm:text-3xl font-display font-extrabold text-emerald-400 tabular-nums">
+                  R$ 0,00
+                </span>
+                <span className="block text-[10px] text-emerald-400 font-bold">100% Incluso no Plano VIP</span>
+              </div>
+            ) : (
+              <div className="text-right">
+                <span className="text-2xl sm:text-3xl font-display font-extrabold text-[#D4AF37] tabular-nums">
+                  {formatCurrency(totalPrice)}
+                </span>
+                <span className="block text-[10px] text-zinc-500">Pagamento no local</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

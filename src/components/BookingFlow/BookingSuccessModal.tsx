@@ -1,19 +1,19 @@
 import React from 'react';
-import { CheckCircle2, MessageCircle, CalendarPlus, X, Copy, Check, Activity } from 'lucide-react';
+import { CheckCircle2, CalendarPlus, X, Copy, Check } from 'lucide-react';
 import { Booking } from '../../types';
 import { formatCurrency, formatDatePtBR, formatDuration } from '../../utils/formatters';
 import { createBookingConfirmationMessage, generateWhatsAppDirectLink } from '../../services/webhookService';
+import { WhatsAppIcon } from '../WhatsAppIcon';
 
 interface BookingSuccessModalProps {
   booking: Booking;
   onClose: () => void;
-  onOpenWebhooks: () => void;
+  onOpenWebhooks?: () => void;
 }
 
 export const BookingSuccessModal: React.FC<BookingSuccessModalProps> = ({
   booking,
   onClose,
-  onOpenWebhooks,
 }) => {
   const [copied, setCopied] = React.useState(false);
 
@@ -117,7 +117,7 @@ export const BookingSuccessModal: React.FC<BookingSuccessModalProps> = ({
             rel="noopener noreferrer"
             className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition active:scale-[0.98]"
           >
-            <MessageCircle className="w-4 h-4 fill-white" />
+            <WhatsAppIcon variant="official" size={20} />
             <span>Abrir Comprovante no WhatsApp</span>
           </a>
 
@@ -149,18 +149,6 @@ export const BookingSuccessModal: React.FC<BookingSuccessModalProps> = ({
               <span>Google Agenda</span>
             </button>
           </div>
-
-          {/* View Webhook Log */}
-          <button
-            onClick={() => {
-              onClose();
-              onOpenWebhooks();
-            }}
-            className="w-full py-2 text-[11px] font-medium text-zinc-400 hover:text-[#D4AF37] flex items-center justify-center gap-1.5 transition"
-          >
-            <Activity className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Ver payload JSON enviado ao Webhook / Evolution API</span>
-          </button>
         </div>
       </div>
     </div>

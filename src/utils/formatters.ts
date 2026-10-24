@@ -39,6 +39,22 @@ export function cleanPhone(value: string): string {
   return value.replace(/\D/g, '');
 }
 
+export function cleanDigits(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
+export function generateSlug(text: string): string {
+  return (text || '')
+    .toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s_]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 export function timeToMinutes(timeStr: string): number {
   const [hours, minutes] = timeStr.split(':').map(Number);
   return hours * 60 + minutes;
@@ -80,3 +96,20 @@ export function formatFullDatePtBR(dateStr: string): string {
     year: 'numeric',
   });
 }
+
+export function formatTimePtBR(isoOrTimeStr: string): string {
+  if (!isoOrTimeStr) return '';
+  try {
+    const date = new Date(isoOrTimeStr);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    }
+    return isoOrTimeStr;
+  } catch {
+    return isoOrTimeStr;
+  }
+}
+
