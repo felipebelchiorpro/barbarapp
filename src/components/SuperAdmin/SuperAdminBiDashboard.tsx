@@ -799,13 +799,13 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
                   key={planKey}
                   type="button"
                   onClick={() => setSelectedPlanCard(planKey)}
-                  className={`flex-1 py-1 rounded-lg text-[9px] font-mono font-bold transition text-center ${
+                  className={`flex-1 py-1.5 rounded-lg text-[10px] font-mono font-bold transition text-center uppercase tracking-wider ${
                     selectedPlanCard === planKey
                       ? 'bg-gradient-to-r from-[#D4A373] to-[#B8860B] text-black shadow-md'
                       : 'bg-black/50 text-[#8E8E98] hover:text-white border border-[#262630]'
                   }`}
                 >
-                  planKey === 'starter' ? 'INICIANTE' : planKey === 'pro' ? 'PRO' : 'ENTERPRISE'
+                  {planKey === 'starter' ? 'INICIANTE' : planKey === 'pro' ? 'PRO' : 'ENTERPRISE'}
                 </button>
               ))}
             </div>
