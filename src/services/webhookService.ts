@@ -2,7 +2,7 @@ import { Booking, EvolutionApiConfig, WebhookLog } from '../types';
 import { cleanPhone, formatCurrency, formatDatePtBR } from '../utils/formatters';
 import { logSystemError } from './systemErrorLogService';
 
-export function createBookingConfirmationMessage(booking: Booking, shopName: string = 'Barbearia LS'): string {
+export function createBookingConfirmationMessage(booking: Booking, shopName: string = 'Naville Barber'): string {
   const serviceList = booking.services.map((s) => `✂️ ${s.name} (${s.durationMinutes} min)`).join('\n');
 
   return `💈 *COMPROVANTE DE AGENDAMENTO* 💈
@@ -24,10 +24,10 @@ _Chegue com 5 minutos de antecedência._
 Caso precise remarcar ou cancelar, responda esta mensagem ou acesse nosso app.`;
 }
 
-export function createBookingReminderMessage(booking: Booking, hoursBefore: number = 2): string {
+export function createBookingReminderMessage(booking: Booking, hoursBefore: number = 2, shopName: string = 'Naville Barber'): string {
   return `⏰ *LEMBRETE DE AGENDAMENTO* ⏰
 
-Olá, *${booking.customerName}*! Lembramos que você tem um horário agendado hoje na *Barbearia LS*.
+Olá, *${booking.customerName}*! Lembramos que você tem um horário agendado hoje na *${shopName}*.
 
 ⏰ *Horário:* ${booking.startTime} (${formatDatePtBR(booking.date)})
 💈 *Profissional:* ${booking.barberName}

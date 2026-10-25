@@ -14,7 +14,7 @@ import { TenantConfig, CrmWebhookConfig } from '../src/types';
 const MOCK_TENANTS: TenantConfig[] = [
   {
     id: 'tenant-barbearia-ls',
-    name: 'Barbearia LS',
+    name: 'Naville Barber',
     slug: 'barbearia-ls',
     ownerName: 'Leonardo Soares',
     ownerPhone: '11981234567',

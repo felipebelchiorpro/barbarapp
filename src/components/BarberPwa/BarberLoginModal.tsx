@@ -203,7 +203,7 @@ export const BarberLoginModal: React.FC<BarberLoginModalProps> = ({
                       <span className="text-xs font-bold text-white block group-hover:text-amber-400">
                         Diego Barbeiro
                       </span>
-                      <span className="text-[10px] text-zinc-400">PWA Modo Cadeira · Barbearia LS</span>
+                      <span className="text-[10px] text-zinc-400">PWA Modo Cadeira · Naville Barber</span>
                     </div>
                   </div>
                   <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-500/15 text-[#D4AF37] border border-amber-500/30">
@@ -225,7 +225,7 @@ export const BarberLoginModal: React.FC<BarberLoginModalProps> = ({
                       <span className="text-xs font-bold text-white block group-hover:text-amber-400">
                         Marcos Vinicius (Barbeiro)
                       </span>
-                      <span className="text-[10px] text-zinc-400">PWA Modo Cadeira · Barbearia LS</span>
+                      <span className="text-[10px] text-zinc-400">PWA Modo Cadeira · Naville Barber</span>
                     </div>
                   </div>
                   <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-500/15 text-[#D4AF37] border border-amber-500/30">

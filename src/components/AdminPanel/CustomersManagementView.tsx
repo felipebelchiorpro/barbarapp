@@ -21,6 +21,7 @@ import { WhatsAppIcon } from '../WhatsAppIcon';
 interface CustomersManagementViewProps {
   customers: CustomerProfile[];
   tenantId: string;
+  tenantName?: string;
   onAddCustomer: (newCustomer: Omit<CustomerProfile, 'id' | 'createdAt'>) => void;
   onUpdateCustomer: (customer: CustomerProfile) => void;
   onDeleteCustomer: (customerId: string) => void;
@@ -29,6 +30,7 @@ interface CustomersManagementViewProps {
 export const CustomersManagementView: React.FC<CustomersManagementViewProps> = ({
   customers,
   tenantId,
+  tenantName = 'Naville Barber',
   onAddCustomer,
   onUpdateCustomer,
   onDeleteCustomer,
@@ -215,7 +217,7 @@ export const CustomersManagementView: React.FC<CustomersManagementViewProps> = (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredCustomers.map((cust) => {
           const rawPhone = cust.phone.replace(/\D/g, '');
-          const waUrl = `https://wa.me/55${rawPhone}?text=${encodeURIComponent(`Olá ${cust.name}, tudo bem? Aqui é da Barbearia LS!`)}`;
+          const waUrl = `https://wa.me/55${rawPhone}?text=${encodeURIComponent(`Olá ${cust.name}, tudo bem? Aqui é da ${tenantName}!`)}`;
 
           return (
             <div

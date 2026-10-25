@@ -611,21 +611,12 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
               </div>
             </div>
 
-            {/* Version Switcher Badge (Allows switching back to v1.0 anytime) */}
+            {/* Status Indicator */}
             <div className="flex items-center gap-1.5">
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#D4A373]/15 text-[#D4A373] border border-[#D4A373]/30 text-[10px] font-bold">
-                <Crown className="w-3 h-3 text-[#D4A373]" />
-                <span>v2.0 Luxury</span>
-              </div>
-
-              <button
-                onClick={() => onToggleUiVersion('v1')}
-                title="Voltar para a Versão 1.0 (Clássica)"
-                className="px-2 py-0.5 rounded-full bg-[#16161A] hover:bg-[#2A2A32] text-[#8E8E98] hover:text-white border border-[#2A2A32] text-[10px] font-semibold flex items-center gap-1 transition-all active:scale-95"
-              >
-                <RotateCcw className="w-2.5 h-2.5" />
-                <span>v1.0</span>
-              </button>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Agendamento Aberto
+              </span>
             </div>
           </div>
         </header>

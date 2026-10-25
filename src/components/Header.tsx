@@ -9,6 +9,7 @@ interface HeaderProps {
   onOpenWebhooks: () => void;
   onOpenQRCode: () => void;
   webhookCount: number;
+  brandName?: string;
   uiVersion?: 'v1' | 'v2';
   onToggleUiVersion?: (v: 'v1' | 'v2') => void;
 }
@@ -19,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenWebhooks,
   onOpenQRCode,
   webhookCount,
+  brandName,
   uiVersion = 'v2',
   onToggleUiVersion,
 }) => {
@@ -32,7 +34,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div className="min-w-0">
             <span className="font-display text-sm sm:text-base font-extrabold tracking-wider text-white uppercase truncate block">
-              {currentView === 'super-admin' ? 'Naville' : 'Barbearia LS'}
+              {brandName || (currentView === 'super-admin' ? 'Naville' : 'Naville Barber')}
             </span>
             {currentView === 'barber' && (
               <span className="text-[10px] text-amber-400 font-mono font-bold tracking-widest uppercase block -mt-0.5">
@@ -148,46 +150,8 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             </>
           ) : (
-            /* CLIENT VIEW CONTROLS - ULTRA CLEAN, ZERO ESCAPE/ADMIN/BARBER BUTTONS */
-            <div className="flex items-center gap-2">
-              {/* Version Switcher Badge (v1.0 Clássica vs v2.0 Luxury) */}
-              {onToggleUiVersion && (
-                <button
-                  onClick={() => onToggleUiVersion(uiVersion === 'v2' ? 'v1' : 'v2')}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition min-h-[36px] bg-amber-500/10 border-amber-500/30 text-[#D4AF37] hover:bg-amber-500/20 active:scale-95 cursor-pointer shadow-sm"
-                  title={uiVersion === 'v2' ? 'Voltar para a Versão 1.0 (Clássica)' : 'Experimentar a Nova Versão 2.0 (Luxury Suite)'}
-                >
-                  {uiVersion === 'v2' ? (
-                    <>
-                      <Crown className="w-3.5 h-3.5 text-[#D4AF37]" />
-                      <span className="hidden sm:inline">v2.0 Luxury</span>
-                      <span className="sm:hidden">v2</span>
-                    </>
-                  ) : (
-                    <>
-                      <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
-                      <span className="hidden sm:inline">v1.0 Clássica</span>
-                      <span className="sm:hidden">v1</span>
-                    </>
-                  )}
-                </button>
-              )}
-
-              {/* Direct WhatsApp help link */}
-              <a
-                href="https://api.whatsapp.com/send?phone=5511999999999&text=Ol%C3%A1%2C%20gostaria%20de%20tirar%20uma%20d%C3%BAvida%20sobre%20o%20agendamento%20na%20Barbearia%20LS"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600/15 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-600/25 transition text-xs font-semibold min-h-[36px]"
-                title="Dúvidas no WhatsApp"
-              >
-                <WhatsAppIcon variant="official" size={16} />
-                <span>Contato</span>
-              </a>
-
-              {/* PWA Install Button (only shows when installable on device) */}
-              <PWAInstallButton />
-            </div>
+            /* CLIENT VIEW - CLEAN & MINIMAL, NO TEST BUTTONS */
+            null
           )}
         </div>
       </div>

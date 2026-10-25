@@ -61,7 +61,7 @@ export const INITIAL_SYSTEM_ERROR_LOGS: SystemErrorLog[] = [
   {
     id: 'err-pdv-4102',
     barbearia_id: 'tenant-barbearia-ls',
-    barbearia_nome: 'Barbearia LS (Matriz)',
+    barbearia_nome: 'Naville Barber (Matriz)',
     nivel: 'critico',
     modulo: 'pdv_checkout',
     mensagem_erro: 'Falha de Validação na Comanda #CMD-9021: Total divergente entre itens e forma de pagamento',

@@ -159,7 +159,7 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
   const handleSimulateError = async (type: 'evolution' | 'pdv' | 'faturacao' | 'runtime') => {
     setIsSimulating(true);
     try {
-      const sampleTenant = tenants[0] || { id: 'tenant-barbearia-ls', name: 'Barbearia LS' };
+      const sampleTenant = tenants[0] || { id: 'tenant-barbearia-ls', name: 'Naville Barber' };
 
       if (type === 'evolution') {
         await logSystemError({

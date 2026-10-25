@@ -48,6 +48,7 @@ interface AdminSidebarProps {
   recursoFinanceiroAvancado?: boolean;
   whatsappAtivo?: boolean;
   enabledModules?: TenantModulesConfig;
+  tenantName?: string;
   isOpenMobile: boolean;
   onCloseMobile: () => void;
   onNavigateClient: () => void;
@@ -86,6 +87,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   recursoFinanceiroAvancado = true,
   whatsappAtivo = true,
   enabledModules,
+  tenantName,
   isOpenMobile,
   onCloseMobile,
   onNavigateClient,
@@ -222,7 +224,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             </div>
             <div>
               <span className="font-display text-sm font-extrabold tracking-wider text-white uppercase block leading-tight">
-                Barbearia LS
+                {tenantName || 'Naville Barber'}
               </span>
               <span className="text-[11px] text-amber-400 font-mono font-bold tracking-widest uppercase block mt-0.5">
                 Painel do Barbeiro

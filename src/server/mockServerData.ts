@@ -17,7 +17,7 @@ export const SERVER_DEFAULT_INVOICE_NINJA_CONFIG: InvoiceNinjaConfig = {
 export const SERVER_INITIAL_TENANTS: TenantConfig[] = [
   {
     id: 'tenant-barbearia-ls',
-    name: 'Barbearia LS',
+    name: 'Naville Barber',
     slug: 'barbearia-ls',
     ownerName: 'Leonardo Soares',
     ownerPhone: '11981234567',
@@ -137,7 +137,7 @@ export const SERVER_INITIAL_INVOICES: Invoice[] = [
   {
     id: 'inv-ls-001',
     tenantId: 'tenant-barbearia-ls',
-    tenantName: 'Barbearia LS',
+    tenantName: 'Naville Barber',
     ninjaInvoiceId: 'ninja-inv-8812',
     invoiceNumber: 'INV-2026-0089',
     amount: 49.9,
@@ -266,12 +266,12 @@ export const SERVER_INITIAL_LOGS: InvoiceNinjaWebhookLog[] = [
     timestamp: '2026-10-10T14:22:15.000Z',
     eventType: 'invoice.paid',
     tenantId: 'tenant-barbearia-ls',
-    tenantName: 'Barbearia LS',
+    tenantName: 'Naville Barber',
     invoiceNumber: 'INV-2026-0089',
     amount: 49.9,
     idempotencyKey: 'ninja-evt-tenant-barbearia-ls-INV-2026-0089-invoice.paid-20261010',
     status: 'applied',
-    actionTaken: 'Fatura paga confirmada (R$ 49.90). Tenant Barbearia LS mantido ativo.',
+    actionTaken: 'Fatura paga confirmada (R$ 49.90). Tenant Naville Barber mantido ativo.',
     payload: {
       event: 'invoice.paid',
       tenant_id: 'tenant-barbearia-ls',

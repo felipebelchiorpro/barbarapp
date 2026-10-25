@@ -30,7 +30,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({ onClose }) => {
 
   const handleSendToWhatsApp = () => {
     const text = encodeURIComponent(
-      `💈 *Barbearia LS* - Teste o app de agendamento online:\n${activeUrl}`
+      `💈 *Naville Barber* - Teste o app de agendamento online:\n${activeUrl}`
     );
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };

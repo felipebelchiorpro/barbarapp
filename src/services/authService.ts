@@ -7,10 +7,10 @@ import { AuthUser, AuthSession, UserRole, TenantConfig, BarberExtraItem, ChairOr
 
 const DEFAULT_FALLBACK_TENANT: TenantConfig = {
   id: 'tenant-barbearia-ls',
-  name: 'Barbearia LS',
-  slug: 'barbearia-ls',
-  ownerName: 'Leonardo Soares',
-  ownerPhone: '11981234567',
+  name: 'Naville Barber',
+  slug: 'naville-barber',
+  ownerName: 'Felipe Belchior',
+  ownerPhone: '11999999999',
   plan: 'starter',
   planBasePrice: 49.9,
   max_barbeiros: 1,
@@ -352,7 +352,7 @@ export function getActiveSession(tenantsList?: TenantConfig[]): {
 } {
   if (typeof window === 'undefined') {
     // Servidor / Test runner fallback
-    const defaultUser = MOCK_USERS[1]; // Owner da Barbearia LS por padrão
+    const defaultUser = MOCK_USERS[1]; // Owner da Naville Barber por padrão
     const tenant = resolveTenant(defaultUser.barbearia_id, tenantsList);
     return {
       session: {

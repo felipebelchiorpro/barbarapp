@@ -282,6 +282,7 @@ export const AdminScheduleView: React.FC<AdminScheduleViewProps> = ({
         whatsappAtivo={tenantConfig.whatsapp_ativo ?? tenantConfig.enabledModules?.whatsapp_auto ?? true}
         isWhatsAppConnected={evolutionConfig.autoSendEnabled}
         isTenantBlocked={tenantConfig.status === 'blocked'}
+        tenantName={tenantConfig.name}
         isOpenMobile={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
         onNavigateClient={onNavigateClient || (() => {})}
@@ -585,7 +586,7 @@ export const AdminScheduleView: React.FC<AdminScheduleViewProps> = ({
                 // Link de lembrete rápido do horário
                 const waReminderLink = generateWhatsAppDirectLink(
                   booking.customerPhone,
-                  `Olá, ${booking.customerName}! Passando para lembrar do seu horário hoje às ${booking.startTime} (${booking.services.map((s) => s.name).join(', ')}) com ${booking.barberName} na Barbearia LS.`
+                  `Olá, ${booking.customerName}! Passando para lembrar do seu horário hoje às ${booking.startTime} (${booking.services.map((s) => s.name).join(', ')}) com ${booking.barberName} na ${tenantConfig.name || 'Naville Barber'}.`
                 );
                 const isCombo = booking.services.some((s) => s.id === 'cabelo-e-barba' || s.durationMinutes === 60);
 
@@ -1091,6 +1092,7 @@ export const AdminScheduleView: React.FC<AdminScheduleViewProps> = ({
           <CustomersManagementView
             customers={customers.filter((c) => c.tenantId === tenantConfig.id)}
             tenantId={tenantConfig.id}
+            tenantName={tenantConfig.name || 'Naville Barber'}
             onAddCustomer={onAddCustomer || (() => {})}
             onUpdateCustomer={onUpdateCustomer || (() => {})}
             onDeleteCustomer={onDeleteCustomer || (() => {})}

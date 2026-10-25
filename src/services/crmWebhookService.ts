@@ -39,7 +39,7 @@ export const INITIAL_CRM_WEBHOOK_LOGS: CrmWebhookLog[] = [
       timestamp: '2026-10-19T09:14:22.000Z',
       tenant: {
         id: 'tenant-barbearia-ls',
-        name: 'Barbearia LS',
+        name: 'Naville Barber',
         slug: 'barbearia-ls',
         ownerName: 'Leonardo Soares',
         ownerPhone: '11981234567',

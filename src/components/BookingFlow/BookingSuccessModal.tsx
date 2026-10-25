@@ -35,7 +35,7 @@ export const BookingSuccessModal: React.FC<BookingSuccessModalProps> = ({
     const startISO = `${year}${month}${day}T${startH}${startM}00`;
     const endISO = `${year}${month}${day}T${endH}${endM}00`;
 
-    const title = encodeURIComponent(`Barbearia LS - ${booking.services.map((s) => s.name).join(', ')}`);
+    const title = encodeURIComponent(`Naville Barber - ${booking.services.map((s) => s.name).join(', ')}`);
     const details = encodeURIComponent(
       `Atendimento com ${booking.barberName}.\nServiços: ${booking.services.map((s) => s.name).join(', ')}\nValor: ${formatCurrency(booking.totalPrice)}`
     );
@@ -66,7 +66,7 @@ export const BookingSuccessModal: React.FC<BookingSuccessModalProps> = ({
             Agendamento Confirmado!
           </h2>
           <p className="text-xs sm:text-sm text-zinc-400 max-w-xs mx-auto">
-            Seu horário na <strong>Barbearia LS</strong> foi reservado no sistema e o webhook de confirmação foi disparado.
+            Seu horário na <strong>Naville Barber</strong> foi reservado no sistema e o webhook de confirmação foi disparado.
           </p>
         </div>
 

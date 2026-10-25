@@ -1042,13 +1042,14 @@ export default function App() {
       <OfflineIndicator />
 
       {/* Top Header (Clean customer header or dedicated admin header) */}
-      {currentView !== 'super-admin' && (
+      {currentView !== 'super-admin' && currentView !== 'client' && (
         <Header
           currentView={currentView}
           onNavigate={handleNavigate}
           onOpenWebhooks={() => setIsWebhookModalOpen(true)}
           onOpenQRCode={() => setIsQRCodeModalOpen(true)}
           webhookCount={webhookLogs.length}
+          brandName={activeTenant.name}
           uiVersion={uiVersion}
           onToggleUiVersion={handleToggleUiVersion}
         />
@@ -1465,7 +1466,7 @@ export default function App() {
       />
 
       {/* Quiet Footer */}
-      {currentView !== 'super-admin' && (
+      {currentView !== 'super-admin' && currentView !== 'client' && (
         <footer className="py-6 border-t border-white/5 text-center text-xs text-zinc-500 w-full overflow-hidden">
         <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -1483,7 +1484,7 @@ export default function App() {
               </>
             ) : (
               <>
-                <span className="font-display font-bold text-zinc-300">BARBEARIA LS</span>
+                <span className="font-display font-bold text-zinc-300">{activeTenant.name || 'NAVILLE BARBER'}</span>
                 <span>·</span>
                 <span className="text-[#D4AF37]/90 font-medium">Powered by Naville</span>
               </>
@@ -1520,7 +1521,7 @@ export default function App() {
               <>
                 <span className="text-zinc-400 font-medium">Terminal do Profissional · Sessão Ativa</span>
                 <span>·</span>
-                <span>© {new Date().getFullYear()} Barbearia LS</span>
+                <span>© {new Date().getFullYear()} {activeTenant.name || 'Naville Barber'}</span>
               </>
             ) : currentView === 'admin' ? (
               <>
@@ -1538,13 +1539,13 @@ export default function App() {
                   ← Ver Agendamento do Cliente
                 </button>
                 <span>·</span>
-                <span>© {new Date().getFullYear()} Barbearia LS</span>
+                <span>© {new Date().getFullYear()} {activeTenant.name || 'Naville Barber'}</span>
               </>
             ) : (
               <>
                 <span className="text-zinc-500 font-medium">Agendamento Online 24h</span>
                 <span>·</span>
-                <span>Barbearia LS © {new Date().getFullYear()}</span>
+                <span>© {new Date().getFullYear()} {activeTenant.name || 'Naville Barber'}</span>
                 <span>·</span>
                 <span className="text-zinc-600">Todos os direitos reservados</span>
               </>

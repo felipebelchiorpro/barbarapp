@@ -73,7 +73,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = () => {
       <div className="relative h-64 sm:h-80 w-full overflow-hidden bg-black">
         <img
           src={currentImg}
-          alt="Barbearia LS Interior Oficial"
+          alt="Naville Barber Interior Oficial"
           className={`w-full h-full object-cover object-[center_35%] transition-all duration-300 ${filterClasses}`}
         />
 
@@ -157,10 +157,10 @@ export const HeroBanner: React.FC<HeroBannerProps> = () => {
 
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold font-display text-white leading-tight">
-            Barbearia LS
+            Naville Barber
           </h1>
           <p className="text-xs sm:text-sm text-zinc-300 mt-1 max-w-lg leading-relaxed">
-            Atendimento exclusivo com Leonardo Soares. Agendamento ágil e pontual com corte de cabelo, barba alinhada na navalha e acabamento de alta precisão.
+            Ambiente exclusivo com atendimento de excelência, agendamento ágil, corte de alta precisão e barba alinhada na navalha.
           </p>
         </div>
 

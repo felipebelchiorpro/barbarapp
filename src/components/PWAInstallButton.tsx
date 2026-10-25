@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { Download, X, Smartphone, Share } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
-export const PWAInstallButton: React.FC = () => {
+interface PWAInstallButtonProps {
+  tenantName?: string;
+}
+
+export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({ tenantName = 'Naville Barber' }) => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const [showIOSGuide, setShowIOSGuide] = useState(false);
 
@@ -54,7 +58,7 @@ export const PWAInstallButton: React.FC = () => {
 
               <h3 className="text-lg font-bold text-white font-display">Instalar no iPhone</h3>
               <p className="mt-2 text-xs text-zinc-400 leading-relaxed">
-                Adicione a <strong>Barbearia LS</strong> à tela de início do seu iPhone para agendamento instantâneo em tela cheia:
+                Adicione o app <strong>{tenantName}</strong> à tela de início do seu iPhone para agendamento instantâneo em tela cheia:
               </p>
 
               <div className="mt-4 space-y-3 text-xs text-zinc-300">
