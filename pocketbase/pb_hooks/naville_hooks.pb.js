@@ -318,24 +318,60 @@ onRecordAfterCreateSuccess((e) => {
   }
 }, "agendamentos");
 
-// 4. Endpoint de Gestão: GET /api/barbearia/whatsapp/qrcode
+// 4. Endpoint de Gestão: GET /api/barbearia/whatsapp/qrcode (Com Auto-Provisionamento & Auto-Recuperação 404)
 routerAdd("GET", "/api/barbearia/whatsapp/qrcode", (e) => {
   const query = e.requestInfo().query || {};
   const barbeariaId = query.barbearia_id || query.tenant_id || "kd2eakh5cijm61x";
   let instanceName = "naville_barbearia_" + barbeariaId;
+  let record = null;
 
   try {
-    const record = $app.findRecordById("barbearias", barbeariaId);
+    record = $app.findRecordById("barbearias", barbeariaId);
     if (record && record.get("evolution_instance_name")) {
       instanceName = record.get("evolution_instance_name");
     }
-  } catch (_) {}
+  } catch (_) {
+    try {
+      const records = $app.findRecordsByFilter("barbearias", "slug = '" + barbeariaId + "' || id = '" + barbeariaId + "'", "-created", 1);
+      if (records && records.length > 0) {
+        record = records[0];
+        if (record.get("evolution_instance_name")) {
+          instanceName = record.get("evolution_instance_name");
+        }
+      }
+    } catch (_) {}
+  }
 
   const evoApiUrl = $os.getenv("EVOLUTION_API_URL") || "http://evolution-api:8080";
   const evoApiKey = $os.getenv("EVOLUTION_API_KEY") || "4f89d3a1b72e5c9f0861ab4e3c7d92f15082e6da19743c5b8df2194a860eb3c1";
 
+  // Função interna de provisionamento direto
+  const autoCreateInstance = function() {
+    try {
+      const payload = JSON.stringify({
+        instanceName: instanceName,
+        qrcode: true,
+        integration: "WHATSAPP-BAILEYS"
+      });
+      return $http.send({
+        url: evoApiUrl + "/instance/create",
+        method: "POST",
+        headers: {
+          "apikey": evoApiKey,
+          "Content-Type": "application/json"
+        },
+        data: payload,
+        timeout: 30,
+      });
+    } catch (errCreate) {
+      console.error("[Evolution AutoProvision] Erro ao criar instancia " + instanceName + ":", errCreate);
+      return null;
+    }
+  };
+
   try {
-    const res = $http.send({
+    // 1. Tenta conectar para obter o QR Code da instância
+    let res = $http.send({
       url: evoApiUrl + "/instance/connect/" + instanceName,
       method: "GET",
       headers: {
@@ -344,7 +380,48 @@ routerAdd("GET", "/api/barbearia/whatsapp/qrcode", (e) => {
       timeout: 30,
     });
 
+    // 2. Se a instância não existe (404), AUTO-CRIA a instância na hora e gera o QR Code!
+    if (res.statusCode === 404 || (res.raw && res.raw.includes("does not exist"))) {
+      console.log("[Evolution] Instancia " + instanceName + " nao encontrada na Evolution API. Auto-criando e gerando QR Code...");
+      const createRes = autoCreateInstance();
+
+      if (createRes && createRes.statusCode >= 200 && createRes.statusCode < 300) {
+        const createData = createRes.json;
+        const base64 = createData?.qrcode?.base64 || createData?.base64;
+        if (base64) {
+          if (record) {
+            record.set("evolution_instance_name", instanceName);
+            record.set("whatsapp_status", "connecting");
+            try { $app.save(record); } catch (_) {}
+          }
+          return e.json(200, {
+            base64: base64,
+            pairingCode: createData?.qrcode?.pairingCode || createData?.pairingCode || null,
+            code: createData?.qrcode?.code || createData?.code || null,
+            count: createData?.qrcode?.count || 1,
+            instance: instanceName,
+            status: "connecting"
+          });
+        }
+      }
+
+      // Se foi criada e precisa solicitar connect para capturar o QR Code recém-gerado:
+      res = $http.send({
+        url: evoApiUrl + "/instance/connect/" + instanceName,
+        method: "GET",
+        headers: {
+          "apikey": evoApiKey,
+        },
+        timeout: 30,
+      });
+    }
+
     if (res.statusCode >= 200 && res.statusCode < 300) {
+      if (record) {
+        record.set("evolution_instance_name", instanceName);
+        record.set("whatsapp_status", "connecting");
+        try { $app.save(record); } catch (_) {}
+      }
       return e.json(200, res.json);
     }
     return e.json(res.statusCode, { error: "Falha na Evolution API", details: res.raw });
@@ -352,6 +429,41 @@ routerAdd("GET", "/api/barbearia/whatsapp/qrcode", (e) => {
     return e.json(500, { error: "Falha de conexão com a Evolution API", details: String(err) });
   }
 });
+
+// Hook: Auto-criar instância Evolution API ao cadastrar uma nova barbearia
+onRecordAfterCreateRequest((e) => {
+  const record = e.record;
+  const barbeariaId = record.id;
+  const instanceName = "naville_barbearia_" + barbeariaId;
+
+  const evoApiUrl = $os.getenv("EVOLUTION_API_URL") || "http://evolution-api:8080";
+  const evoApiKey = $os.getenv("EVOLUTION_API_KEY") || "4f89d3a1b72e5c9f0861ab4e3c7d92f15082e6da19743c5b8df2194a860eb3c1";
+
+  try {
+    record.set("evolution_instance_name", instanceName);
+    record.set("whatsapp_status", "connecting");
+    $app.save(record);
+
+    console.log("[AutoProvision] Nova barbearia cadastrada (" + barbeariaId + "). Auto-criando instancia: " + instanceName);
+    const payload = JSON.stringify({
+      instanceName: instanceName,
+      qrcode: true,
+      integration: "WHATSAPP-BAILEYS"
+    });
+    $http.send({
+      url: evoApiUrl + "/instance/create",
+      method: "POST",
+      headers: {
+        "apikey": evoApiKey,
+        "Content-Type": "application/json"
+      },
+      data: payload,
+      timeout: 30,
+    });
+  } catch (err) {
+    console.error("[AutoProvision] Erro ao auto-provisionar instancia para nova barbearia:", err);
+  }
+}, "barbearias");
 
 // 5. Endpoint de Gestão: GET /api/barbearia/whatsapp/status
 routerAdd("GET", "/api/barbearia/whatsapp/status", (e) => {

@@ -101,17 +101,87 @@ export async function getEvolutionConnectionState(
 }
 
 /**
- * 2. Solicita a conexão e obtém o QR Code em Base64
- * Prioriza o endpoint de gestão seguro /api/barbearia/whatsapp/qrcode
+ * 2. Cria a instância na Evolution API de forma automática
+ * Suporta chamada direta e via proxy backend
  */
-export async function getEvolutionConnectQRCode(config: EvolutionApiConfig): Promise<EvolutionConnectResult> {
+export async function createEvolutionInstance(
+  config: EvolutionApiConfig
+): Promise<{ success: boolean; qrResult?: EvolutionConnectResult; error?: string }> {
+  const baseUrl = cleanBaseUrl(config.baseUrl);
+  const instance = encodeURIComponent(config.instanceName.trim() || 'barbearia');
+  const isDirectEvolution = baseUrl && (baseUrl.includes(':8080') || baseUrl.includes('whatsapp.naville.app'));
+
+  const endpoint = isDirectEvolution
+    ? `${baseUrl}/instance/create`
+    : `/evolution/instance/create`;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Tenant-Id': config.instanceName || 'barbearia',
+  };
+  if (config.apiKey) {
+    headers.apikey = config.apiKey.trim();
+  }
+
+  try {
+    const payload = {
+      instanceName: config.instanceName.trim() || 'barbearia',
+      token: `naville_${config.instanceName}_${Date.now()}`,
+      qrcode: true,
+      integration: 'WHATSAPP-BAILEYS',
+    };
+
+    const response = await fetchWithTimeout(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      return { success: false, error: `Falha ao criar instância (${response.status}): ${errText}` };
+    }
+
+    const data = await response.json();
+    let base64 = data?.qrcode?.base64 || data?.base64 || '';
+    if (base64 && !base64.startsWith('data:image')) {
+      base64 = `data:image/png;base64,${base64}`;
+    }
+
+    return {
+      success: true,
+      qrResult: {
+        base64: base64 || undefined,
+        pairingCode: data?.qrcode?.pairingCode || data?.pairingCode || null,
+        code: data?.qrcode?.code || data?.code || undefined,
+        count: data?.qrcode?.count || 1,
+      },
+    };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Erro ao contatar Evolution API para criar instância',
+    };
+  }
+}
+
+/**
+ * 3. Solicita a conexão e obtém o QR Code em Base64
+ * Possui auto-recuperação (Self-Healing): Se a instância não existir (404),
+ * cria a instância automaticamente e retorna o novo QR Code gerado!
+ */
+export async function getEvolutionConnectQRCode(
+  config: EvolutionApiConfig,
+  forceNew = false
+): Promise<EvolutionConnectResult> {
   const baseUrl = cleanBaseUrl(config.baseUrl);
   const instance = encodeURIComponent(config.instanceName.trim() || 'barbearia');
 
   const isDirectEvolution = baseUrl && (baseUrl.includes(':8080') || baseUrl.includes('whatsapp.naville.app'));
+  const cacheBuster = forceNew ? `&_t=${Date.now()}` : '';
   const endpoint = isDirectEvolution
     ? `${baseUrl}/instance/connect/${instance}`
-    : `/api/barbearia/whatsapp/qrcode?tenant_id=${instance}&barbearia_id=${instance}`;
+    : `/api/barbearia/whatsapp/qrcode?tenant_id=${instance}&barbearia_id=${instance}${cacheBuster}`;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -126,8 +196,40 @@ export async function getEvolutionConnectQRCode(config: EvolutionApiConfig): Pro
     headers,
   });
 
+  // Se a instância não existir (404), auto-cria agora e gera novo QR Code!
+  if (response.status === 404) {
+    console.warn('[Evolution API] Instância não existia (404). Auto-criando agora...');
+    const createRes = await createEvolutionInstance(config);
+    if (createRes.success && createRes.qrResult?.base64) {
+      return createRes.qrResult;
+    }
+    // Se criou mas não veio QR no payload inicial, tenta o connect novamente
+    const retryRes = await fetchWithTimeout(endpoint, { method: 'GET', headers });
+    if (retryRes.ok) {
+      const data = await retryRes.json();
+      let base64 = data?.base64 || data?.qrcode?.base64 || '';
+      if (base64 && !base64.startsWith('data:image')) {
+        base64 = `data:image/png;base64,${base64}`;
+      }
+      return {
+        base64: base64 || undefined,
+        pairingCode: data?.pairingCode || null,
+        code: data?.code || undefined,
+        count: data?.count,
+      };
+    }
+  }
+
   if (!response.ok) {
     const errText = await response.text().catch(() => '');
+    // Se o texto de erro indicar que a instância não existe, tenta o self-healing
+    if (errText.includes('does not exist') || errText.includes('not exist')) {
+      console.warn('[Evolution API] Self-healing: Instância reportada como inexistente. Auto-criando...');
+      const createRes = await createEvolutionInstance(config);
+      if (createRes.success && createRes.qrResult?.base64) {
+        return createRes.qrResult;
+      }
+    }
     throw new Error(`Erro ao gerar QR Code (${response.status}): ${errText || response.statusText}`);
   }
 

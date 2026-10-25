@@ -74,18 +74,43 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
     }
   }, [config, onStatusChange]);
 
+  const [qrSecondsLeft, setQrSecondsLeft] = useState<number>(45);
+
   /**
-   * Busca e exibe o QR Code via /instance/connect
+   * Temporizador de expiração do QR Code (Baileys expira a cada 45 segundos)
    */
-  const handleGenerateQRCode = async () => {
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (qrBase64) {
+      setQrSecondsLeft(45);
+      interval = setInterval(() => {
+        setQrSecondsLeft((prev) => {
+          if (prev <= 1) {
+            if (interval) clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [qrBase64]);
+
+  /**
+   * Busca e exibe o QR Code via /instance/connect (Com Auto-Provisionamento de Instância se necessário)
+   */
+  const handleGenerateQRCode = async (forceNew = true) => {
     setIsLoadingQR(true);
     setErrorMessage(null);
     try {
       setStatus('connecting');
-      const result = await getEvolutionConnectQRCode(config);
+      const result = await getEvolutionConnectQRCode(config, forceNew);
 
       if (result.base64) {
         setQrBase64(result.base64);
+        setQrSecondsLeft(45);
       } else {
         const currentState = await checkStatus();
         if (currentState !== 'open') {
@@ -306,17 +331,37 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
                 </div>
 
                 {/* Box do QR Code com fundo branco puro para leitura perfeita */}
-                <div className="p-3 bg-white rounded-2xl shadow-xl border-4 border-[#D4A373]/50">
+                <div className="relative p-3 bg-white rounded-2xl shadow-xl border-4 border-[#D4A373]/50">
                   <img
                     src={qrBase64}
                     alt="QR Code WhatsApp"
-                    className="w-52 h-52 sm:w-60 sm:h-60 object-contain select-none"
+                    className={`w-52 h-52 sm:w-60 sm:h-60 object-contain select-none transition-opacity ${
+                      qrSecondsLeft === 0 ? 'opacity-30 blur-xs' : 'opacity-100'
+                    }`}
                   />
+                  {qrSecondsLeft === 0 && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4 bg-black/75 rounded-xl text-center space-y-2">
+                      <AlertCircle className="w-8 h-8 text-amber-400" />
+                      <span className="text-xs font-bold text-white">QR Code Expirou</span>
+                      <button
+                        onClick={() => handleGenerateQRCode(true)}
+                        disabled={isLoadingQR}
+                        className="py-2 px-3 rounded-xl bg-[#D4A373] text-[#0F0F12] text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg active:scale-95 transition-all"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isLoadingQR ? 'animate-spin' : ''}`} />
+                        <span>Gerar Novo Código</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 text-xs text-amber-300/90">
                   <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                  <span>Aguardando leitura do WhatsApp... (verificando a cada 3s)</span>
+                  <span>
+                    {qrSecondsLeft > 0
+                      ? `Aguardando leitura do WhatsApp... (${qrSecondsLeft}s restantes)`
+                      : 'QR Code precisa ser atualizado.'}
+                  </span>
                 </div>
 
                 <div className="text-[11px] text-zinc-400 max-w-sm space-y-0.5">
@@ -326,12 +371,12 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
 
                 <div className="flex items-center gap-2 pt-1">
                   <button
-                    onClick={handleGenerateQRCode}
+                    onClick={() => handleGenerateQRCode(true)}
                     disabled={isLoadingQR}
-                    className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-200 font-medium flex items-center gap-1.5 transition"
+                    className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#D4A373] to-[#B88656] text-[#0F0F12] text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-sm"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isLoadingQR ? 'animate-spin' : ''}`} />
-                    <span>Atualizar QR Code</span>
+                    <span>Gerar Novo QR Code</span>
                   </button>
 
                   <button

@@ -22,6 +22,7 @@ import { initGlobalErrorInterceptors } from './services/systemErrorLogService';
 import { BarberPwaView } from './components/BarberPwa/BarberPwaView';
 import { BarberLoginModal } from './components/BarberPwa/BarberLoginModal';
 import { SecureLoginView } from './components/Auth/SecureLoginView';
+import { createEvolutionInstance } from './services/evolutionApi';
 import { getActiveSession, MOCK_USERS } from './services/authService';
 import { AuthSession } from './types';
 import { NavilleLuxuryClientView } from './components/LuxurySuite/NavilleLuxuryClientView';
@@ -334,6 +335,14 @@ export default function App() {
       buildCrmEventPayload('saas.lead.cadastro_iniciado', { tenant: newTenant }),
       crmConfig
     );
+    // Auto-cria instância na Evolution API assim que a barbearia é cadastrada
+    const rawInstance = newTenant.instanceName || `barbearia_${newTenant.slug || newTenant.id}`;
+    const cleanInstance = rawInstance.startsWith('naville_barbearia_') ? rawInstance : `naville_barbearia_${rawInstance}`;
+    createEvolutionInstance({
+      baseUrl: 'http://evolution-api:8080',
+      apiKey: '4f89d3a1b72e5c9f0861ab4e3c7d92f15082e6da19743c5b8df2194a860eb3c1',
+      instanceName: cleanInstance,
+    }).catch((err) => console.warn('[Evolution API] Auto-provisioning em background:', err));
   };
 
   const handleSelectTenant = (tenantId: string) => {
