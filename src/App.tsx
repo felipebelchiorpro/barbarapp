@@ -1544,49 +1544,14 @@ export default function App() {
           />
         ) : authSession.user.role === 'barber' &&
            !(authSession.user.canAccessAdmin || barbers.find((b) => b.id === authSession.user.barber_id)?.canAccessAdmin) ? (
-          /* Barbeiro sem permissão de dono tentando acessar /admin */
-          <div className="max-w-md mx-auto my-12 p-6 sm:p-8 rounded-2xl bg-[#18181B] border border-amber-500/30 text-center space-y-4 shadow-2xl animate-in fade-in">
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-[#D4AF37] flex items-center justify-center mx-auto">
-              <Crown className="w-7 h-7" />
-            </div>
-            <div className="space-y-1">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold">
-                Acesso Restrito ao Dono
-              </span>
-              <h3 className="text-lg font-bold text-white">
-                Olá, {authSession.user.name}
-              </h3>
-              <p className="text-xs text-zinc-400 leading-relaxed pt-1">
-                Seu perfil está cadastrado como <strong>Barbeiro</strong> e não possui autorização para acessar o painel administrativo, financeiro ou configurações da barbearia.
-              </p>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-zinc-900 border border-white/5 text-left text-[11px] text-zinc-400 space-y-1.5">
-              <span className="text-zinc-200 font-semibold block">Precisa gerenciar a barbearia?</span>
-              <p className="leading-relaxed">
-                O proprietário pode habilitar seu acesso completo na seção <strong>"Profissionais"</strong> do painel, marcando a opção <em>"Habilitar Acesso ao Painel de Dono"</em> no seu cadastro.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-2 pt-2">
-              <button
-                onClick={() => handleNavigate('barber')}
-                className="w-full py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#c59f2e] text-black font-bold text-xs transition active:scale-95 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Scissors className="w-4 h-4" />
-                <span>Ir para meu Modo Cadeira (/barbeiro)</span>
-              </button>
-              <button
-                onClick={() => {
-                  clearAuthSession();
-                  setAuthSession(null);
-                  handleNavigate('login');
-                }}
-                className="w-full py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium text-xs transition cursor-pointer"
-              >
-                Sair e Entrar como Proprietário
-              </button>
-            </div>
+          /* O barbeiro não precisa saber que a área administrativa existe: redirecionamento transparente para o Modo Cadeira */
+          <div className="py-20 text-center text-xs text-zinc-400">
+            {(() => {
+              if (typeof window !== 'undefined') {
+                setTimeout(() => handleNavigate('barber'), 0);
+              }
+              return 'Carregando Modo Cadeira...';
+            })()}
           </div>
         ) : (
           /* Admin / Barber Panel (Dono ou Barbeiro Habilitado) */
