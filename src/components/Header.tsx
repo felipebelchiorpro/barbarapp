@@ -4,8 +4,8 @@ import { PWAInstallButton } from './PWAInstallButton';
 import { WhatsAppIcon } from './WhatsAppIcon';
 
 interface HeaderProps {
-  currentView: 'client' | 'admin' | 'super-admin' | 'barber';
-  onNavigate: (view: 'client' | 'admin' | 'super-admin' | 'barber') => void;
+  currentView: 'client' | 'admin' | 'super-admin' | 'barber' | 'login';
+  onNavigate: (view: 'client' | 'admin' | 'super-admin' | 'barber' | 'login') => void;
   onOpenWebhooks: () => void;
   onOpenQRCode: () => void;
   webhookCount: number;

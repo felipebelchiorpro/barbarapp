@@ -21,6 +21,7 @@ import { UserFriendlyToast } from './components/UserFriendlyToast';
 import { initGlobalErrorInterceptors } from './services/systemErrorLogService';
 import { BarberPwaView } from './components/BarberPwa/BarberPwaView';
 import { BarberLoginModal } from './components/BarberPwa/BarberLoginModal';
+import { SecureLoginView } from './components/Auth/SecureLoginView';
 import { getActiveSession, MOCK_USERS } from './services/authService';
 import { AuthSession } from './types';
 import { NavilleLuxuryClientView } from './components/LuxurySuite/NavilleLuxuryClientView';
@@ -104,6 +105,21 @@ function checkUrlView(): 'client' | 'admin' | 'super-admin' | 'barber' {
     return 'client';
   }
 
+  // Rota de Login Seguro (Barbeiro, Dono e Super Admin Master)
+  if (
+    path.includes('/login') ||
+    path.includes('/entrar') ||
+    path.includes('/acesso') ||
+    path.includes('/auth') ||
+    hash.includes('login') ||
+    hash.includes('entrar') ||
+    hash.includes('auth') ||
+    search.includes('login') ||
+    search.includes('auth')
+  ) {
+    return 'login';
+  }
+
   if (
     path.includes('/super-admin') ||
     path.includes('/superadmin') ||
@@ -143,8 +159,8 @@ function checkUrlView(): 'client' | 'admin' | 'super-admin' | 'barber' {
 }
 
 export default function App() {
-  // Navigation View (auto-detects /super-admin, /admin, /barbeiro, or client)
-  const [currentView, setCurrentView] = useState<'client' | 'admin' | 'super-admin' | 'barber'>(() => {
+  // Navigation View (auto-detects /super-admin, /admin, /barbeiro, /login, or client)
+  const [currentView, setCurrentView] = useState<'client' | 'admin' | 'super-admin' | 'barber' | 'login'>(() => {
     return checkUrlView();
   });
 
@@ -212,7 +228,7 @@ export default function App() {
     };
   }, [tenants]);
 
-  const handleNavigate = (view: 'client' | 'admin' | 'super-admin' | 'barber', slug?: string) => {
+  const handleNavigate = (view: 'client' | 'admin' | 'super-admin' | 'barber' | 'login', slug?: string) => {
     setCurrentView(view);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     const currentSlug = slug || activeTenant.slug || 'barbearia-ls';
@@ -223,6 +239,8 @@ export default function App() {
         ? '/painel'
         : view === 'barber'
         ? '/barbeiro'
+        : view === 'login'
+        ? '/login'
         : `/b/${currentSlug}`;
     if (window.location.pathname !== targetPath) {
       window.history.pushState({ view, slug: currentSlug }, '', targetPath);
@@ -1042,7 +1060,7 @@ export default function App() {
       <OfflineIndicator />
 
       {/* Top Header (Clean customer header or dedicated admin header) */}
-      {currentView !== 'super-admin' && currentView !== 'client' && (
+      {currentView !== 'super-admin' && currentView !== 'client' && currentView !== 'login' && (
         <Header
           currentView={currentView}
           onNavigate={handleNavigate}
@@ -1061,13 +1079,38 @@ export default function App() {
         activeTenantName={activeTenant.name}
       >
         <main className={`flex-1 w-full mx-auto transition-all duration-200 ${
-          (currentView === 'client' && uiVersion === 'v2') || currentView === 'super-admin'
+          (currentView === 'client' && uiVersion === 'v2') || currentView === 'super-admin' || currentView === 'login'
             ? 'p-0 max-w-full space-y-0'
             : currentView === 'client' || currentView === 'barber'
             ? 'px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 max-w-2xl sm:max-w-3xl'
             : 'px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 max-w-[1600px]'
         }`}>
-        {currentView === 'super-admin' ? (
+        {currentView === 'login' ? (
+          /* Área de Login Segura (Dono / Barbeiro com Logo da Barbearia & Super Admin Master com Logo Branca Naville) */
+          <SecureLoginView
+            initialPortal={
+              typeof window !== 'undefined' &&
+              (window.location.pathname.includes('super-admin') ||
+               window.location.search.includes('superadmin') ||
+               window.location.hash.includes('superadmin'))
+                ? 'super-admin'
+                : 'tenant'
+            }
+            initialRole={
+              typeof window !== 'undefined' && window.location.pathname.includes('barbeiro')
+                ? 'barber'
+                : 'owner'
+            }
+            tenants={tenants}
+            activeTenantId={activeTenantId}
+            onSelectTenant={setActiveTenantId}
+            onLoginSuccess={(newSession, targetView) => {
+              setAuthSession(newSession);
+              handleNavigate(targetView);
+            }}
+            onBackToClient={() => handleNavigate('client')}
+          />
+        ) : currentView === 'super-admin' ? (
           /* Super Admin Panel */
           <SuperAdminDashboard
             tenants={tenants}
@@ -1226,6 +1269,7 @@ export default function App() {
               onToggleUiVersion={handleToggleUiVersion}
               onNavigateToAdmin={() => handleNavigate('admin')}
               onNavigateToBarber={() => handleNavigate('barber')}
+              onNavigateToLogin={() => handleNavigate('login')}
             />
           ) : (
             /* VERSÃO 1.0 (CLÁSSICA) - PRESERVADA CASO QUEIRA VOLTAR ATRÁS */
@@ -1466,7 +1510,7 @@ export default function App() {
       />
 
       {/* Quiet Footer */}
-      {currentView !== 'super-admin' && currentView !== 'client' && (
+      {currentView !== 'super-admin' && currentView !== 'client' && currentView !== 'login' && (
         <footer className="py-6 border-t border-white/5 text-center text-xs text-zinc-500 w-full overflow-hidden">
         <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">

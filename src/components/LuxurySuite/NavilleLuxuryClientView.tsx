@@ -84,6 +84,7 @@ interface NavilleLuxuryClientViewProps {
   onToggleUiVersion: (v: 'v1' | 'v2') => void;
   onNavigateToAdmin?: () => void;
   onNavigateToBarber?: () => void;
+  onNavigateToLogin?: () => void;
 }
 
 export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = ({
@@ -99,6 +100,7 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
   onToggleUiVersion,
   onNavigateToAdmin,
   onNavigateToBarber,
+  onNavigateToLogin,
 }) => {
   // Only active services and barbers
   const activeServices = useMemo(() => services.filter((s) => s.active !== false), [services]);
@@ -1586,6 +1588,18 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
             <span>·</span>
             <span>Todos os direitos reservados para <strong className="text-zinc-300 font-semibold">Naville Barber</strong></span>
           </p>
+          <div className="mt-2.5 flex items-center justify-center gap-3 text-[10px] text-zinc-500">
+            <button
+              onClick={() => {
+                if (onNavigateToLogin) onNavigateToLogin();
+                else window.location.href = '/login';
+              }}
+              className="hover:text-zinc-300 flex items-center gap-1 transition-colors py-1 px-2.5 rounded-lg hover:bg-white/5 border border-transparent hover:border-white/5"
+            >
+              <Shield className="w-3.5 h-3.5 text-[#D4A373]" />
+              <span>Acesso da Barbearia (Dono / Barbeiro)</span>
+            </button>
+          </div>
         </footer>
 
         {/* ========================================================================= */}

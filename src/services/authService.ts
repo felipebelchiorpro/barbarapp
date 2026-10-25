@@ -32,7 +32,7 @@ const OTP_STORE_STORAGE_KEY = 'naville_otp_store_v1';
 const userSuperAdmin: AuthUser = {
   id: 'user-superadmin-1',
   email: 'superadmin@naville.app',
-  name: 'Leonardo Soares (Super Admin)',
+  name: 'Administrador Master (Super Admin)',
   role: 'superadmin',
   barbearia_id: 'tenant-barbearia-ls',
   phone: '11981234567',
@@ -44,8 +44,8 @@ const userSuperAdmin: AuthUser = {
 
 const userOwner: AuthUser = {
   id: 'user-owner-ls',
-  email: 'dono@barbearials.com',
-  name: 'Leonardo Soares (Proprietário)',
+  email: 'dono@navillebarber.com',
+  name: 'Felipe Belchior (Proprietário)',
   role: 'owner',
   barbearia_id: 'tenant-barbearia-ls',
   phone: '11981234567',
@@ -57,7 +57,7 @@ const userOwner: AuthUser = {
 
 const userBarberDiego: AuthUser = {
   id: 'user-barber-diego',
-  email: 'diego@barbearials.com',
+  email: 'diego@navillebarber.com',
   name: 'Diego Barbeiro',
   role: 'barber',
   barbearia_id: 'tenant-barbearia-ls',
@@ -71,7 +71,7 @@ const userBarberDiego: AuthUser = {
 
 const userBarberMarcos: AuthUser = {
   id: 'user-barber-marcos',
-  email: 'marcos@barbearials.com',
+  email: 'marcos@navillebarber.com',
   name: 'Marcos Vinicius (Barbeiro)',
   role: 'barber',
   barbearia_id: 'tenant-barbearia-ls',
