@@ -595,35 +595,6 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
       <div className="w-full max-w-md md:max-w-xl bg-[#0F0F11] min-h-screen flex flex-col relative pb-32 border-x border-[#2A2A32]/40 shadow-2xl">
         
         {/* ========================================================================= */}
-        {/* TOP VERSION SWITCHER & CONTROL BAR */}
-        {/* ========================================================================= */}
-        <header className="sticky top-0 z-40 bg-[#0F0F11]/95 backdrop-blur-md border-b border-[#2A2A32]/60 px-4 py-2.5 transition-all">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <img
-                src="/naville_logo.png"
-                alt="Naville"
-                className="w-8 h-8 object-contain shrink-0 drop-shadow-[0_2px_8px_rgba(212,163,115,0.4)]"
-              />
-              <div className="flex flex-col">
-                <span className="font-serif tracking-widest text-[11px] uppercase font-bold text-[#E8C5A0] leading-none">
-                  {tenantConfig.name || 'NAVILLE SUITE'}
-                </span>
-                <span className="text-[9px] text-[#8E8E98] mt-0.5">Luxury Experience</span>
-              </div>
-            </div>
-
-            {/* Status Indicator */}
-            <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Agendamento Aberto
-              </span>
-            </div>
-          </div>
-        </header>
-
-        {/* ========================================================================= */}
         {/* HERO COVER WITH ASYMMETRIC CURVED SCOOP OVERLAY */}
         {/* ========================================================================= */}
         <div
@@ -702,9 +673,12 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
               {/* Round Barbershop Crest / Logo with Gold Ring */}
               <div className="relative flex-shrink-0">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#261E14] to-[#141416] p-0.5 border-2 border-[#D4A373] shadow-lg flex items-center justify-center">
-                  <div className="w-full h-full rounded-[14px] bg-[#16161A] flex flex-col items-center justify-center text-[#D4A373]">
-                    <Crown className="w-5 h-5" />
-                    <span className="text-[8px] font-black tracking-widest uppercase mt-0.5">NVL</span>
+                  <div className="w-full h-full rounded-[14px] bg-[#16161A] flex items-center justify-center p-2">
+                    <img
+                      src="/naville_logo.png"
+                      alt={tenantConfig.name || 'Naville Barber'}
+                      className="w-10 h-10 object-contain drop-shadow-[0_2px_8px_rgba(212,163,115,0.5)]"
+                    />
                   </div>
                 </div>
                 <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[#0F0F11] flex items-center justify-center" title="Aberto Agora">
@@ -716,7 +690,7 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-base font-extrabold text-white tracking-tight leading-tight">
-                    {tenantConfig.name || 'Naville Heritage'}
+                    {tenantConfig.name || 'Naville Barber'}
                   </h1>
                   <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-[#D4A373]/20 text-[#D4A373] border border-[#D4A373]/30">
                     VIP CLUB
