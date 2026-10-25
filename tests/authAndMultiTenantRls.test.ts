@@ -17,6 +17,8 @@ import {
   removeExtraItemFromChairOrder,
   calculateBarberPerformance,
   DEFAULT_BARBER_EXTRAS,
+  getActiveSession,
+  updateBarberAdminPermission,
 } from '../src/services/authService';
 import { TenantConfig, Booking, ChairOrder } from '../src/types';
 
@@ -401,6 +403,47 @@ assert(
   (diegoPerformance as any).faturamentoTotalEmpresa === undefined &&
     (diegoPerformance as any).outrosBarbeiros === undefined,
   'Trava de Privacidade Zero Trust: Nenhuma métrica global ou de outros barbeiros é exposta ao barbeiro'
+);
+
+// -----------------------------------------------------------------------------
+// BLOCO 5: LOGIN OBRIGATÓRIO & PERMISSÃO DE ACESSO DO BARBEIRO AO PAINEL DE DONO
+// -----------------------------------------------------------------------------
+console.log('\n📌 Bloco 5: Login Obrigatório & Permissão ao Painel de Dono');
+
+// 1. Sem sessão ativa, getActiveSession retorna nulo
+const emptySession = getActiveSession();
+assert(
+  emptySession.session === null,
+  'Login Obrigatório: Sem usuário autenticado, getActiveSession retorna sessão nula'
+);
+
+// 2. Barbeiro padrão (Diego) não tem permissão para acessar parte de dono
+const diegoUser = MOCK_USERS.find((u) => u.id === 'user-barber-diego');
+assert(
+  diegoUser?.canAccessAdmin === false,
+  'Barbeiro comum (Diego) possui canAccessAdmin = false (bloqueado de acessar painel de dono)'
+);
+
+// 3. Barbeiro habilitado (Marcos) tem permissão de dono
+const barberMarcos = MOCK_USERS.find((u) => u.id === 'user-barber-marcos');
+assert(
+  barberMarcos?.canAccessAdmin === true,
+  'Barbeiro habilitado (Marcos) possui canAccessAdmin = true (autorizado a acessar painel de dono)'
+);
+
+// 4. Habilitação dinâmica via updateBarberAdminPermission
+updateBarberAdminPermission('barber-diego', true);
+const barberDiegoUpdated = MOCK_USERS.find((u) => u.id === 'user-barber-diego');
+assert(
+  barberDiegoUpdated?.canAccessAdmin === true,
+  'updateBarberAdminPermission habilita acesso ao painel de dono com sucesso'
+);
+
+// Restaura estado padrão do Diego para false
+updateBarberAdminPermission('barber-diego', false);
+assert(
+  barberDiegoUpdated?.canAccessAdmin === false,
+  'updateBarberAdminPermission revoga permissão de dono corretamente'
 );
 
 // -----------------------------------------------------------------------------

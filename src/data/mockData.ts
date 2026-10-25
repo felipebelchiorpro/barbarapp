@@ -113,6 +113,7 @@ export const INITIAL_BARBERS: Barber[] = [
     attendanceType: 'ambos', // Atende por Agenda e Ordem de Chegada
     acceptsSubscriptionClub: true, // Aceita Clube VIP
     serviceIds: ['corte-cabelo', 'barba', 'cabelo-e-barba', 'pezinho-acabamento', 'sobrancelha'],
+    canAccessAdmin: true, // Master / Proprietário tem acesso ao painel do dono
   },
   {
     id: 'barber-diego',
@@ -128,6 +129,7 @@ export const INITIAL_BARBERS: Barber[] = [
     attendanceType: 'agenda', // Apenas por Agenda (horário marcado)
     acceptsSubscriptionClub: true, // Aceita Clube VIP
     serviceIds: ['corte-cabelo', 'barba', 'cabelo-e-barba', 'pezinho-acabamento'], // Não realiza sobrancelha
+    canAccessAdmin: false, // Barbeiro padrão: acesso restrito apenas à cadeira (/barbeiro)
   },
   {
     id: 'barber-marcus',
@@ -143,6 +145,7 @@ export const INITIAL_BARBERS: Barber[] = [
     attendanceType: 'ordem_chegada', // Apenas por Ordem de Chegada (fila presencial)
     acceptsSubscriptionClub: false, // NÃO participa do Clube VIP (atendimento apenas avulso)
     serviceIds: ['corte-cabelo', 'pezinho-acabamento'], // Corta apenas cabelo
+    canAccessAdmin: false, // Apenas cadeira
   },
 ];
 

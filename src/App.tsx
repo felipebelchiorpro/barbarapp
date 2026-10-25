@@ -23,10 +23,10 @@ import { BarberPwaView } from './components/BarberPwa/BarberPwaView';
 import { BarberLoginModal } from './components/BarberPwa/BarberLoginModal';
 import { SecureLoginView } from './components/Auth/SecureLoginView';
 import { createEvolutionInstance } from './services/evolutionApi';
-import { getActiveSession, MOCK_USERS } from './services/authService';
+import { getActiveSession, clearAuthSession, MOCK_USERS } from './services/authService';
 import { AuthSession } from './types';
 import { NavilleLuxuryClientView } from './components/LuxurySuite/NavilleLuxuryClientView';
-import { Crown } from 'lucide-react';
+import { Crown, Scissors } from 'lucide-react';
 
 import {
   INITIAL_SERVICES,
@@ -1116,7 +1116,8 @@ export default function App() {
       <OfflineIndicator />
 
       {/* Top Header (Clean customer header or dedicated admin header) */}
-      {currentView !== 'super-admin' && currentView !== 'client' && currentView !== 'login' && (
+      {/* Top Header */}
+      {currentView !== 'client' && (
         <Header
           currentView={currentView}
           onNavigate={handleNavigate}
@@ -1126,6 +1127,12 @@ export default function App() {
           brandName={activeTenant.name}
           uiVersion={uiVersion}
           onToggleUiVersion={handleToggleUiVersion}
+          authSession={authSession}
+          onLogout={() => {
+            clearAuthSession();
+            setAuthSession(null);
+            handleNavigate('login');
+          }}
         />
       )}
 
@@ -1167,35 +1174,94 @@ export default function App() {
             onBackToClient={() => handleNavigate('client')}
           />
         ) : currentView === 'super-admin' ? (
-          /* Super Admin Panel */
-          <SuperAdminDashboard
-            tenants={tenants}
-            activeTenantId={activeTenantId}
-            invoices={invoices}
-            plans={SAAS_PLANS}
-            invoiceNinjaConfig={ninjaConfig}
-            ninjaLogs={ninjaWebhookLogs}
-            crmConfig={crmConfig}
-            onSelectTenant={handleSelectTenant}
-            onUpdateTenant={handleUpdateTenant}
-            onAddTenant={handleAddTenant}
-            onNavigateView={handleNavigate}
-            onUpdateInvoiceNinjaConfig={setNinjaConfig}
-            onUpdateCrmConfig={setCrmConfig}
-            onTriggerNinjaWebhook={handleTriggerNinjaWebhook}
-            onClearNinjaLogs={() => setNinjaWebhookLogs([])}
-          />
+          /* Super Admin Panel - Login Estritamente Obrigatório */
+          !authSession ? (
+            <SecureLoginView
+              initialPortal="super-admin"
+              tenants={tenants}
+              activeTenantId={activeTenantId}
+              onSelectTenant={setActiveTenantId}
+              onLoginSuccess={(newSession, targetView) => {
+                setAuthSession(newSession);
+                handleNavigate(targetView || 'super-admin');
+              }}
+              onBackToClient={() => handleNavigate('client')}
+            />
+          ) : authSession.user.role !== 'superadmin' ? (
+            <div className="max-w-md mx-auto my-12 p-6 sm:p-8 rounded-2xl bg-[#18181B] border border-red-500/30 text-center space-y-4 shadow-xl animate-in fade-in">
+              <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center mx-auto">
+                <Crown className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Acesso Exclusivo Super Admin</h3>
+                <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                  Você está autenticado como <strong>{authSession.user.name}</strong> ({authSession.user.role}), mas esta área é restrita aos administradores master da plataforma Naville.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 pt-2">
+                <button
+                  onClick={() => handleNavigate(authSession.user.role === 'barber' ? 'barber' : 'admin')}
+                  className="w-full py-2.5 rounded-xl bg-[#D4AF37] text-black font-bold text-xs hover:bg-[#c59f2e] transition cursor-pointer"
+                >
+                  Ir para meu painel ({authSession.user.role === 'barber' ? 'Modo Cadeira' : 'Painel da Barbearia'})
+                </button>
+                <button
+                  onClick={() => {
+                    clearAuthSession();
+                    setAuthSession(null);
+                    handleNavigate('login');
+                  }}
+                  className="w-full py-2 rounded-xl bg-zinc-800 text-zinc-300 font-medium text-xs hover:bg-zinc-700 transition cursor-pointer"
+                >
+                  Sair e Entrar com outra conta
+                </button>
+              </div>
+            </div>
+          ) : (
+            <SuperAdminDashboard
+              tenants={tenants}
+              activeTenantId={activeTenantId}
+              invoices={invoices}
+              plans={SAAS_PLANS}
+              invoiceNinjaConfig={ninjaConfig}
+              ninjaLogs={ninjaWebhookLogs}
+              crmConfig={crmConfig}
+              onSelectTenant={handleSelectTenant}
+              onUpdateTenant={handleUpdateTenant}
+              onAddTenant={handleAddTenant}
+              onNavigateView={handleNavigate}
+              onUpdateInvoiceNinjaConfig={setNinjaConfig}
+              onUpdateCrmConfig={setCrmConfig}
+              onTriggerNinjaWebhook={handleTriggerNinjaWebhook}
+              onClearNinjaLogs={() => setNinjaWebhookLogs([])}
+            />
+          )
         ) : currentView === 'barber' ? (
-          /* Modo Cadeira - PWA do Barbeiro com RLS & Zero Trust (Isolado e restrito ao Barbeiro) */
-          <BarberPwaView
-            currentUser={authSession?.user || MOCK_USERS.barber_diego}
-            tenant={activeTenant}
-            barbers={barbers}
-            bookings={bookings}
-            onUpdateBookingStatus={handleUpdateBookingStatus}
-            onOpenLoginModal={() => setIsLoginModalOpen(true)}
-            isTenantBlocked={activeTenant.status === 'blocked'}
-          />
+          /* Modo Cadeira - Login Obrigatório */
+          !authSession ? (
+            <SecureLoginView
+              initialPortal="tenant"
+              initialRole="barber"
+              tenants={tenants}
+              activeTenantId={activeTenantId}
+              onSelectTenant={setActiveTenantId}
+              onLoginSuccess={(newSession) => {
+                setAuthSession(newSession);
+                handleNavigate('barber');
+              }}
+              onBackToClient={() => handleNavigate('client')}
+            />
+          ) : (
+            <BarberPwaView
+              currentUser={authSession.user}
+              tenant={activeTenant}
+              barbers={barbers}
+              bookings={bookings}
+              onUpdateBookingStatus={handleUpdateBookingStatus}
+              onOpenLoginModal={() => setIsLoginModalOpen(true)}
+              isTenantBlocked={activeTenant.status === 'blocked'}
+            />
+          )
         ) : currentView === 'client' ? (
           /* Check Kill Switch: If tenant is blocked, render blocked customer view */
           activeTenant.status === 'blocked' ? (
@@ -1462,8 +1528,68 @@ export default function App() {
               />
             </div>
           )
+        ) : !authSession ? (
+          /* Login Obrigatório para o Painel da Barbearia */
+          <SecureLoginView
+            initialPortal="tenant"
+            initialRole="owner"
+            tenants={tenants}
+            activeTenantId={activeTenantId}
+            onSelectTenant={setActiveTenantId}
+            onLoginSuccess={(newSession) => {
+              setAuthSession(newSession);
+              handleNavigate('admin');
+            }}
+            onBackToClient={() => handleNavigate('client')}
+          />
+        ) : authSession.user.role === 'barber' &&
+           !(authSession.user.canAccessAdmin || barbers.find((b) => b.id === authSession.user.barber_id)?.canAccessAdmin) ? (
+          /* Barbeiro sem permissão de dono tentando acessar /admin */
+          <div className="max-w-md mx-auto my-12 p-6 sm:p-8 rounded-2xl bg-[#18181B] border border-amber-500/30 text-center space-y-4 shadow-2xl animate-in fade-in">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-[#D4AF37] flex items-center justify-center mx-auto">
+              <Crown className="w-7 h-7" />
+            </div>
+            <div className="space-y-1">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold">
+                Acesso Restrito ao Dono
+              </span>
+              <h3 className="text-lg font-bold text-white">
+                Olá, {authSession.user.name}
+              </h3>
+              <p className="text-xs text-zinc-400 leading-relaxed pt-1">
+                Seu perfil está cadastrado como <strong>Barbeiro</strong> e não possui autorização para acessar o painel administrativo, financeiro ou configurações da barbearia.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-zinc-900 border border-white/5 text-left text-[11px] text-zinc-400 space-y-1.5">
+              <span className="text-zinc-200 font-semibold block">Precisa gerenciar a barbearia?</span>
+              <p className="leading-relaxed">
+                O proprietário pode habilitar seu acesso completo na seção <strong>"Profissionais"</strong> do painel, marcando a opção <em>"Habilitar Acesso ao Painel de Dono"</em> no seu cadastro.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                onClick={() => handleNavigate('barber')}
+                className="w-full py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#c59f2e] text-black font-bold text-xs transition active:scale-95 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Scissors className="w-4 h-4" />
+                <span>Ir para meu Modo Cadeira (/barbeiro)</span>
+              </button>
+              <button
+                onClick={() => {
+                  clearAuthSession();
+                  setAuthSession(null);
+                  handleNavigate('login');
+                }}
+                className="w-full py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium text-xs transition cursor-pointer"
+              >
+                Sair e Entrar como Proprietário
+              </button>
+            </div>
+          </div>
         ) : (
-          /* Admin / Barber Panel */
+          /* Admin / Barber Panel (Dono ou Barbeiro Habilitado) */
           <AdminScheduleView
             barbers={barbers}
             services={services}

@@ -25,6 +25,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { WhatsAppIcon } from '../WhatsAppIcon';
 import { generateWhatsAppDirectLink } from '../../services/webhookService';
 import { SelfServiceUpgradeModal } from './SelfServiceUpgradeModal';
+import { updateBarberAdminPermission } from '../../services/authService';
 
 interface BarbersManagementViewProps {
   barbers: Barber[];
@@ -64,6 +65,8 @@ export const BarbersManagementView: React.FC<BarbersManagementViewProps> = ({
   const [attendanceType, setAttendanceType] = useState<BarberAttendanceType>('agenda');
   const [acceptsSubscriptionClub, setAcceptsSubscriptionClub] = useState<boolean>(true);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [canAccessAdmin, setCanAccessAdmin] = useState<boolean>(false);
+  const [loginEmail, setLoginEmail] = useState<string>('');
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
@@ -176,6 +179,8 @@ export const BarbersManagementView: React.FC<BarbersManagementViewProps> = ({
     setAttendanceType('agenda');
     setAcceptsSubscriptionClub(true);
     setSelectedServiceIds(services?.map((s) => s.id) || []);
+    setCanAccessAdmin(false);
+    setLoginEmail('');
     setShowUrlInput(false);
     setUploadSuccess(false);
     setErrorMessage(null);
@@ -197,6 +202,8 @@ export const BarbersManagementView: React.FC<BarbersManagementViewProps> = ({
         ? barber.serviceIds
         : (services?.map((s) => s.id) || [])
     );
+    setCanAccessAdmin(Boolean(barber.canAccessAdmin));
+    setLoginEmail(barber.loginEmail || '');
     setShowUrlInput(false);
     setUploadSuccess(false);
     setErrorMessage(null);
@@ -241,7 +248,11 @@ export const BarbersManagementView: React.FC<BarbersManagementViewProps> = ({
         attendanceType,
         acceptsSubscriptionClub,
         serviceIds: serviceIdsToSave,
+        canAccessAdmin,
+        loginEmail: loginEmail.trim() || undefined,
       });
+      // Sincroniza imediatamente o estado de permissão RBAC deste barbeiro
+      updateBarberAdminPermission(editingBarber.id, canAccessAdmin);
       setIsModalOpen(false);
     } else {
       // Criação de novo profissional (com validação estrita de trava de limite)
@@ -267,6 +278,8 @@ export const BarbersManagementView: React.FC<BarbersManagementViewProps> = ({
         attendanceType,
         acceptsSubscriptionClub,
         serviceIds: serviceIdsToSave,
+        canAccessAdmin,
+        loginEmail: loginEmail.trim() || undefined,
       });
 
       if (success) {
@@ -484,6 +497,17 @@ export const BarbersManagementView: React.FC<BarbersManagementViewProps> = ({
                       ) : (
                         <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-white/5 text-zinc-400 border border-white/5">
                           ✂️ Todos os serviços
+                        </span>
+                      )}
+
+                      {/* Permissão de Acesso ao Painel de Dono */}
+                      {barber.canAccessAdmin ? (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center gap-1" title="Barbeiro com permissão de proprietário: pode acessar o painel de dono">
+                          🛡️ Acesso Dono Habilitado
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-400 border border-white/5" title="Acesso restrito apenas ao Modo Cadeira">
+                          🔒 Apenas Cadeira
                         </span>
                       )}
                     </div>
@@ -928,7 +952,64 @@ export const BarbersManagementView: React.FC<BarbersManagementViewProps> = ({
                 </div>
               </div>
 
-              {/* 3. Serviços que este profissional realiza */}
+              {/* 3. Permissão de Acesso ao Painel de Dono / Administrativo */}
+              <div className="p-3.5 rounded-2xl bg-zinc-900/90 border border-white/10 space-y-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-base mt-0.5">🛡️</span>
+                    <div>
+                      <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>Habilitar Acesso ao Painel de Dono</span>
+                        {canAccessAdmin ? (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            HABILITADO
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-medium bg-zinc-800 text-zinc-400 border border-white/5">
+                            BLOQUEADO (PADRÃO)
+                          </span>
+                        )}
+                      </h4>
+                      <p className="text-[11px] text-zinc-400 leading-snug mt-0.5">
+                        {canAccessAdmin
+                          ? 'Este barbeiro tem permissão para acessar o painel administrativo, ver faturamento, caixa e relatórios gerais.'
+                          : 'Barbeiro comum: consegue acessar apenas o seu Modo Cadeira (/barbeiro). Fica estritamente bloqueado de acessar a área do proprietário.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setCanAccessAdmin(!canAccessAdmin)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      canAccessAdmin ? 'bg-[#D4AF37]' : 'bg-zinc-800'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-black shadow-lg ring-0 transition duration-200 ease-in-out ${
+                        canAccessAdmin ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {canAccessAdmin && (
+                  <div className="pt-2 border-t border-white/5 space-y-1">
+                    <label className="text-[11px] font-medium text-zinc-300">
+                      E-mail de Login do Barbeiro (Opcional)
+                    </label>
+                    <input
+                      type="email"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      placeholder="ex: diego@navillebarber.com"
+                      className="w-full p-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs placeholder-zinc-500 focus:outline-none focus:border-[#D4AF37]"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Serviços que este profissional realiza */}
               {services && services.length > 0 && (
                 <div className="p-3.5 rounded-2xl bg-zinc-900/90 border border-white/10 space-y-2.5">
                   <div className="flex items-center justify-between">

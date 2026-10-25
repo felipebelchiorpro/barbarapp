@@ -67,12 +67,13 @@ const userBarberDiego: AuthUser = {
   status: 'active',
   createdAt: '2026-01-15T08:00:00Z',
   commissionRate: 0.5, // 50% de comissão
+  canAccessAdmin: false, // Barbeiro padrão: NÃO acessa a parte de dono a não ser que seja habilitado
 };
 
 const userBarberMarcos: AuthUser = {
   id: 'user-barber-marcos',
   email: 'marcos@navillebarber.com',
-  name: 'Marcos Vinicius (Barbeiro)',
+  name: 'Marcos Vinicius (Barbeiro Habilitado)',
   role: 'barber',
   barbearia_id: 'tenant-barbearia-ls',
   barber_id: 'barber-marcos',
@@ -81,6 +82,7 @@ const userBarberMarcos: AuthUser = {
   status: 'active',
   createdAt: '2026-02-01T08:00:00Z',
   commissionRate: 0.5,
+  canAccessAdmin: true, // Barbeiro habilitado pelo dono para acessar painel admin
 };
 
 const userBlockedOwner: AuthUser = {
@@ -351,34 +353,14 @@ export function getActiveSession(tenantsList?: TenantConfig[]): {
   blockedByTenant: boolean;
 } {
   if (typeof window === 'undefined') {
-    // Servidor / Test runner fallback
-    const defaultUser = MOCK_USERS[1]; // Owner da Naville Barber por padrão
-    const tenant = resolveTenant(defaultUser.barbearia_id, tenantsList);
-    return {
-      session: {
-        token: generateMockJwt(defaultUser),
-        user: defaultUser,
-        tenant,
-        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      },
-      blockedByTenant: false,
-    };
+    return { session: null, blockedByTenant: false };
   }
 
   try {
     const raw = localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
     if (!raw) {
-      // Se não houver sessão salva, inicializa com o barbeiro Leonardo Soares para o PWA / demonstração
-      const defaultUser = MOCK_USERS[2]; // Barbeiro Diego/Leonardo
-      const tenant = resolveTenant(defaultUser.barbearia_id, tenantsList);
-      const session: AuthSession = {
-        token: generateMockJwt(defaultUser),
-        user: defaultUser,
-        tenant,
-        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      };
-      saveAuthSession(session);
-      return { session, blockedByTenant: false };
+      // Login estritamente obrigatório: se não houver sessão salva, retorna nulo!
+      return { session: null, blockedByTenant: false };
     }
 
     const session: AuthSession = JSON.parse(raw);
@@ -399,6 +381,39 @@ export function getActiveSession(tenantsList?: TenantConfig[]): {
     return { session, blockedByTenant: false };
   } catch {
     return { session: null, blockedByTenant: false };
+  }
+}
+
+/**
+ * Atualiza dinamicamente a permissão de um barbeiro para acessar o painel de dono
+ */
+export function updateBarberAdminPermission(barberId: string, canAccessAdmin: boolean): void {
+  // 1. Atualiza nos MOCK_USERS
+  const targetUser = MOCK_USERS.find(
+    (u) => u.role === 'barber' && (u.barber_id === barberId || u.id === barberId)
+  );
+  if (targetUser) {
+    targetUser.canAccessAdmin = canAccessAdmin;
+  }
+
+  // 2. Se a sessão ativa pertencer a este barbeiro, atualiza no LocalStorage e notifica o app
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+      if (raw) {
+        const session: AuthSession = JSON.parse(raw);
+        if (
+          session.user &&
+          session.user.role === 'barber' &&
+          (session.user.barber_id === barberId || session.user.id === barberId)
+        ) {
+          session.user.canAccessAdmin = canAccessAdmin;
+          saveAuthSession(session);
+        }
+      }
+    } catch (e) {
+      console.error('Falha ao atualizar permissões do barbeiro:', e);
+    }
   }
 }
 

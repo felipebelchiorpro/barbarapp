@@ -35,6 +35,8 @@ export interface Barber {
   attendanceType?: BarberAttendanceType;       // 'agenda' (apenas hora marcada) | 'ordem_chegada' (apenas fila) | 'ambos'
   acceptsSubscriptionClub?: boolean;           // participa ou não do clube de assinaturas / plano de corte
   serviceIds?: string[];                       // IDs de serviços que este profissional realiza (se vazio/undefined, realiza todos)
+  canAccessAdmin?: boolean;                    // Se habilitado pelo dono, permite ao barbeiro acessar o Painel do Dono / Administração
+  loginEmail?: string;                         // E-mail opcional para login do profissional
 }
 
 export type TenantStatus = 'active' | 'blocked' | 'trial';
@@ -764,6 +766,7 @@ export interface AuthUser {
   createdAt: string;
   twoFactorEnabled?: boolean;
   commissionRate?: number; // Ex: 0.50 (50% de comissão sobre os serviços)
+  canAccessAdmin?: boolean; // Se barbeiro tiver permissão explícita concedida pelo dono para gerenciar painel admin
 }
 
 export interface AuthSession {
