@@ -1061,7 +1061,7 @@ export const BarbersManagementView: React.FC<BarbersManagementViewProps> = ({
             </button>
 
             <div className="w-16 h-16 rounded-2xl bg-[#D4A373]/15 border border-[#D4A373]/30 mx-auto flex items-center justify-center text-[#D4A373]">
-              <UsersThree className="w-8 h-8" weight="fill" />
+              <Users className="w-8 h-8" weight="fill" />
             </div>
 
             <div className="space-y-2">

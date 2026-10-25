@@ -44,6 +44,7 @@ import {
   INITIAL_CUSTOMERS,
   INITIAL_CASH_TRANSACTIONS,
   INITIAL_CLIENT_SUBSCRIPTION_PLANS,
+  INITIAL_PRODUCTS,
   getTodayDateString,
 } from './data/mockData';
 import {
@@ -64,6 +65,7 @@ import {
   CashTransaction,
   ClientSubscriptionPlan,
   CrmWebhookConfig,
+  Product,
 } from './types';
 import { addMinutesToTime, cleanPhone, cleanDigits, generateSlug } from './utils/formatters';
 import { calculateSlotAvailability } from './utils/doubleBooking';
@@ -95,7 +97,7 @@ export function extractSlugFromUrl(): string | null {
   return null;
 }
 
-function checkUrlView(): 'client' | 'admin' | 'super-admin' | 'barber' {
+function checkUrlView(): 'client' | 'admin' | 'super-admin' | 'barber' | 'login' {
   if (typeof window === 'undefined') return 'client';
   const path = window.location.pathname.toLowerCase();
   const hash = window.location.hash.toLowerCase();
@@ -342,6 +344,8 @@ export default function App() {
       baseUrl: 'http://evolution-api:8080',
       apiKey: '4f89d3a1b72e5c9f0861ab4e3c7d92f15082e6da19743c5b8df2194a860eb3c1',
       instanceName: cleanInstance,
+      autoSendEnabled: true,
+      reminderHoursBefore: 2,
     }).catch((err) => console.warn('[Evolution API] Auto-provisioning em background:', err));
   };
 
@@ -548,6 +552,49 @@ export default function App() {
 
   const handleDeleteClientPlan = (planId: string) => {
     setClientPlans((prev) => prev.filter((p) => p.id !== planId));
+  };
+
+  // Products State (Produtos & Estoque Interno da Barbearia - NÃO aparecem no agendamento do cliente)
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem('barbearia_ls_products_v1');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return INITIAL_PRODUCTS;
+      }
+    }
+    return INITIAL_PRODUCTS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('barbearia_ls_products_v1', JSON.stringify(products));
+  }, [products]);
+
+  const handleAddProduct = (newProdData: Omit<Product, 'id'>) => {
+    const newProd: Product = {
+      ...newProdData,
+      id: `prod-${Date.now()}`,
+    };
+    setProducts((prev) => [newProd, ...prev]);
+  };
+
+  const handleUpdateProduct = (updatedProd: Product) => {
+    setProducts((prev) => prev.map((p) => (p.id === updatedProd.id ? updatedProd : p)));
+  };
+
+  const handleDeleteProduct = (productId: string) => {
+    setProducts((prev) => prev.filter((p) => p.id !== productId));
+  };
+
+  const handleAdjustProductStock = (productId: string, delta: number) => {
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === productId
+          ? { ...p, stockQuantity: Math.max(0, (p.stockQuantity || 0) + delta) }
+          : p
+      )
+    );
   };
 
   // Services State (com persistência e catálogo editável)
@@ -1438,6 +1485,11 @@ export default function App() {
             customers={customers.filter((c) => c.tenantId === activeTenant.id)}
             cashTransactions={cashTransactions.filter((tx) => tx.tenantId === activeTenant.id)}
             clientPlans={clientPlans}
+            products={products.filter((p) => p.tenantId === activeTenant.id || !p.tenantId)}
+            onAddProduct={handleAddProduct}
+            onUpdateProduct={handleUpdateProduct}
+            onDeleteProduct={handleDeleteProduct}
+            onAdjustProductStock={handleAdjustProductStock}
             onAddClientPlan={handleAddClientPlan}
             onUpdateClientPlan={handleUpdateClientPlan}
             onDeleteClientPlan={handleDeleteClientPlan}
@@ -1523,13 +1575,7 @@ export default function App() {
         <footer className="py-6 border-t border-white/5 text-center text-xs text-zinc-500 w-full overflow-hidden">
         <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            {currentView === 'super-admin' ? (
-              <>
-                <span className="font-display font-bold text-[#D4AF37] tracking-wider">NAVILLE</span>
-                <span>·</span>
-                <span>Plataforma SaaS Multi-tenant</span>
-              </>
-            ) : currentView === 'barber' ? (
+            {currentView === 'barber' ? (
               <>
                 <span className="font-display font-bold text-zinc-300">MODO CADEIRA</span>
                 <span>·</span>
@@ -1545,32 +1591,7 @@ export default function App() {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3 text-zinc-500 text-[11px]">
-            {currentView === 'super-admin' ? (
-              <>
-                <button
-                  onClick={() => handleNavigate('barber')}
-                  className="hover:text-amber-400 transition cursor-pointer underline text-amber-400/90 hover:text-amber-300"
-                >
-                  Modo Cadeira (/barbeiro)
-                </button>
-                <span>·</span>
-                <button
-                  onClick={() => handleNavigate('admin')}
-                  className="hover:text-amber-400 transition cursor-pointer underline text-amber-400/90 hover:text-amber-300"
-                >
-                  Painel da Barbearia (/admin)
-                </button>
-                <span>·</span>
-                <button
-                  onClick={() => handleNavigate('client')}
-                  className="hover:text-amber-400 transition cursor-pointer underline text-zinc-500 hover:text-zinc-300"
-                >
-                  Agendamento do Cliente
-                </button>
-                <span>·</span>
-                <span>© {new Date().getFullYear()} Naville SaaS</span>
-              </>
-            ) : currentView === 'barber' ? (
+            {currentView === 'barber' ? (
               <>
                 <span className="text-zinc-400 font-medium">Terminal do Profissional · Sessão Ativa</span>
                 <span>·</span>

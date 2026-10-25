@@ -36,6 +36,7 @@ import {
   CustomerProfile,
   CashTransaction,
   ClientSubscriptionPlan,
+  Product,
 } from '../../types';
 import {
   DEFAULT_INVOICE_NINJA_CONFIG,
@@ -44,6 +45,7 @@ import {
   INITIAL_CUSTOMERS,
   INITIAL_CASH_TRANSACTIONS,
   INITIAL_CLIENT_SUBSCRIPTION_PLANS,
+  INITIAL_PRODUCTS,
 } from '../../data/mockData';
 import { formatCurrency, formatDatePtBR, formatDuration, timeToMinutes } from '../../utils/formatters';
 import { generateWhatsAppDirectLink } from '../../services/webhookService';
@@ -53,6 +55,7 @@ import { WhatsAppConnectionCard } from './WhatsAppConnectionCard';
 import { WhatsAppAutomationView } from './WhatsAppAutomationView';
 import { BarbersManagementView } from './BarbersManagementView';
 import { ServicesManagementView } from './ServicesManagementView';
+import { ProductsManagementView } from './ProductsManagementView';
 import { TenantBillingView } from './TenantBillingView';
 import { ExpensesManagementView } from './ExpensesManagementView';
 import { CustomersManagementView } from './CustomersManagementView';
@@ -77,6 +80,11 @@ interface AdminScheduleViewProps {
   expenses?: Expense[];
   customers?: CustomerProfile[];
   cashTransactions?: CashTransaction[];
+  products?: Product[];
+  onAddProduct?: (product: Omit<Product, 'id'>) => void;
+  onUpdateProduct?: (product: Product) => void;
+  onDeleteProduct?: (productId: string) => void;
+  onAdjustProductStock?: (productId: string, delta: number) => void;
   onPayInvoiceSimulated?: (invoiceId: string) => void;
   onAddExpense?: (expense: Omit<Expense, 'id' | 'createdAt'>) => void;
   onUpdateExpense?: (expense: Expense) => void;
@@ -123,6 +131,11 @@ export const AdminScheduleView: React.FC<AdminScheduleViewProps> = ({
   customers = INITIAL_CUSTOMERS,
   cashTransactions = INITIAL_CASH_TRANSACTIONS,
   clientPlans = INITIAL_CLIENT_SUBSCRIPTION_PLANS,
+  products = INITIAL_PRODUCTS,
+  onAddProduct,
+  onUpdateProduct,
+  onDeleteProduct,
+  onAdjustProductStock,
   onPayInvoiceSimulated,
   onAddExpense,
   onUpdateExpense,
@@ -272,6 +285,8 @@ export const AdminScheduleView: React.FC<AdminScheduleViewProps> = ({
         activeBarbersCount={barbers.filter((b) => b.active !== false).length}
         maxBarbers={tenantConfig.limite_profissionais ?? tenantConfig.max_barbeiros}
         activeServicesCount={services.filter((s) => s.active !== false).length}
+        productsCount={products.length}
+        lowStockCount={products.filter((p) => p.stockQuantity <= (p.minStock ?? 3)).length}
         pendingExpensesCount={expenses.filter((e) => e.status === 'pending' || e.status === 'overdue').length}
         totalCustomersCount={customers.filter((c) => c.tenantId === tenantConfig.id).length}
         clubMembersCount={customers.filter((c) => c.tenantId === tenantConfig.id && c.status_assinatura === 'ativo').length}
@@ -349,6 +364,7 @@ export const AdminScheduleView: React.FC<AdminScheduleViewProps> = ({
             {adminTab === 'timeline' && 'Grade das Cadeiras'}
             {adminTab === 'barbers' && 'Profissionais'}
             {adminTab === 'services' && 'Serviços & Preços'}
+            {adminTab === 'products' && 'Produtos & Estoque'}
             {adminTab === 'clients' && 'Base de Clientes'}
             {adminTab === 'whatsapp' && 'WhatsApp API'}
             {adminTab === 'pdv' && 'PDV & Caixa'}
@@ -981,6 +997,18 @@ export const AdminScheduleView: React.FC<AdminScheduleViewProps> = ({
         />
       )}
 
+      {/* TAB 5.1: GESTÃO DE PRODUTOS & ESTOQUE INTERNO (ORGANIZAÇÃO) */}
+      {adminTab === 'products' && (
+        <ProductsManagementView
+          products={products}
+          tenantId={tenantConfig.id}
+          onAddProduct={onAddProduct || (() => {})}
+          onUpdateProduct={onUpdateProduct || (() => {})}
+          onDeleteProduct={onDeleteProduct || (() => {})}
+          onAdjustStock={onAdjustProductStock || (() => {})}
+        />
+      )}
+
       {/* TAB 6: CONEXÃO WHATSAPP (EVOLUTION API V2) */}
       {adminTab === 'whatsapp' && (
         <div className="space-y-4">
@@ -1021,7 +1049,7 @@ export const AdminScheduleView: React.FC<AdminScheduleViewProps> = ({
       {adminTab === 'whatsapp-automations' && (
         <WhatsAppAutomationView
           barbeariaId={tenantConfig.id || 'kd2eakh5cijm61x'}
-          isWhatsAppConnected={isWhatsAppConnected}
+          isWhatsAppConnected={tenantConfig.whatsappStatus === 'open'}
           onNavigateToConnection={() => setAdminTab('whatsapp')}
         />
       )}
@@ -1120,6 +1148,7 @@ export const AdminScheduleView: React.FC<AdminScheduleViewProps> = ({
             transactions={cashTransactions.filter((tx) => tx.tenantId === tenantConfig.id)}
             barbers={barbers}
             services={services}
+            products={products}
             tenantId={tenantConfig.id}
             customers={customers.filter((c) => c.tenantId === tenantConfig.id)}
             clientPlans={clientPlans.filter((p) => p.barbearia_id === tenantConfig.id)}

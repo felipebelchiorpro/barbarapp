@@ -16,6 +16,7 @@ import {
   CashTransaction,
   Product,
   ClientSubscriptionPlan,
+  ServiceCategoryConfig,
 } from '../types';
 import heroImg from '../assets/images/barbearia_ls_hero_dark.jpg';
 import barberDiegoImg from '../assets/images/barber_diego_1790281229207.jpg';
@@ -23,6 +24,23 @@ import barberMarcusImg from '../assets/images/barber_marcus_1790281241644.jpg';
 import barberLucasImg from '../assets/images/barber_lucas_1790281253017.jpg';
 
 export const HERO_IMAGE = heroImg;
+
+export const DEFAULT_SERVICE_CATEGORIES: ServiceCategoryConfig[] = [
+  { id: 'cabelo', name: 'Corte & Cabelo', description: 'Cortes masculinos, degrade, infantil e acabamentos' },
+  { id: 'barba', name: 'Barba & Terapia', description: 'Barba alinhada, barba terapia, toalha quente' },
+  { id: 'club', name: 'Barber Club', description: 'Planos mensais, fidelidade e pacotes recorrentes do clube' },
+  { id: 'combos', name: 'Combos & Pacotes', description: 'Combinações de corte + barba com desconto especial' },
+  { id: 'tratamento', name: 'Tratamentos & Química', description: 'Selagem, platinado, hidratação profunda e estética' },
+];
+
+export const DEFAULT_PRODUCT_CATEGORIES = [
+  { id: 'pomadas', label: 'Pomadas & Ceras' },
+  { id: 'barba', label: 'Óleos & Balm de Barba' },
+  { id: 'cuidados', label: 'Shampoos & Cuidados' },
+  { id: 'bebidas', label: 'Bebidas & Bar' },
+  { id: 'insumos', label: 'Insumos & Descartáveis' },
+  { id: 'outro', label: 'Outros' },
+];
 
 export const INITIAL_SERVICES: Service[] = [
   {

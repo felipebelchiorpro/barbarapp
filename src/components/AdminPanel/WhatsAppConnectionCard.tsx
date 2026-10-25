@@ -301,7 +301,7 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
 
             <div className="flex items-center gap-2 shrink-0">
               <button
-                onClick={handleGenerateQRCode}
+                onClick={() => handleGenerateQRCode(true)}
                 disabled={isLoadingQR}
                 className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-white/10 text-zinc-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
                 title="Conectar outro número de WhatsApp"
@@ -406,7 +406,7 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
                 </div>
 
                 <button
-                  onClick={handleGenerateQRCode}
+                  onClick={() => handleGenerateQRCode(true)}
                   disabled={isLoadingQR}
                   className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#D4A373] via-[#C59B63] to-[#B88656] hover:brightness-110 text-[#0F0F12] text-xs font-black tracking-wider uppercase flex items-center justify-center gap-2 transition active:scale-95 shadow-md shadow-amber-950/40 cursor-pointer disabled:opacity-50"
                 >

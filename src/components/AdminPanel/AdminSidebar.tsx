@@ -20,6 +20,7 @@ import {
   SlidersHorizontal,
   ChatDots,
   Storefront,
+  Package,
 } from '@phosphor-icons/react';
 import { TenantModulesConfig } from '../../types';
 import { WhatsAppIcon } from '../WhatsAppIcon';
@@ -29,7 +30,7 @@ const SidebarWhatsAppIcon: React.FC<{ className?: string; weight?: string }> = (
   return <WhatsAppIcon variant={isSelected ? 'monochrome' : 'official'} size={20} className={className} />;
 };
 
-export type AdminTab = 'list' | 'timeline' | 'barbers' | 'services' | 'whatsapp' | 'whatsapp-automations' | 'metrics' | 'expenses' | 'billing' | 'clients' | 'pdv' | 'club' | 'settings' | 'space';
+export type AdminTab = 'list' | 'timeline' | 'barbers' | 'services' | 'products' | 'whatsapp' | 'whatsapp-automations' | 'metrics' | 'expenses' | 'billing' | 'clients' | 'pdv' | 'club' | 'settings' | 'space';
 
 interface AdminSidebarProps {
   currentTab: AdminTab;
@@ -38,6 +39,8 @@ interface AdminSidebarProps {
   activeBarbersCount: number;
   maxBarbers: number;
   activeServicesCount: number;
+  productsCount?: number;
+  lowStockCount?: number;
   pendingExpensesCount?: number;
   totalCustomersCount?: number;
   clubMembersCount?: number;
@@ -77,6 +80,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   activeBarbersCount,
   maxBarbers,
   activeServicesCount,
+  productsCount = 0,
+  lowStockCount = 0,
   pendingExpensesCount = 0,
   totalCustomersCount = 0,
   clubMembersCount = 0,
@@ -142,6 +147,21 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           icon: Scissors,
           badge: activeServicesCount > 0 ? String(activeServicesCount) : undefined,
           badgeColor: 'bg-white/10 text-zinc-300 border-white/10 font-bold',
+        },
+        {
+          id: 'products' as AdminTab,
+          label: 'Produtos & Estoque',
+          icon: Package,
+          badge:
+            lowStockCount > 0
+              ? `${lowStockCount} repor`
+              : productsCount > 0
+              ? `${productsCount} itens`
+              : undefined,
+          badgeColor:
+            lowStockCount > 0
+              ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 font-bold'
+              : 'bg-white/10 text-zinc-300 border-white/10 font-bold',
         },
         {
           id: 'space' as AdminTab,

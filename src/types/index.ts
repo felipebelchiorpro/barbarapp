@@ -1,7 +1,16 @@
+export interface ServiceCategoryConfig {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  active?: boolean;
+  order?: number;
+}
+
 export interface Service {
   id: string;
   name: string;
-  category: 'cabelo' | 'barba' | 'combos' | 'tratamento';
+  category: string; // 'cabelo' | 'barba' | 'combos' | 'tratamento' | 'club' | string
   durationMinutes: number;
   price: number;
   description: string;
@@ -72,6 +81,8 @@ export interface TenantConfig {
   ninjaClientId?: string;
   currentInvoiceId?: string;
   nextBillingDate?: string;
+  data_proximo_vencimento?: string;
+  serviceCategories?: ServiceCategoryConfig[];
 
   // Módulo 3: Ciclo de vida de faturação e subscrição
   invoice_ninja_client_id?: string;
@@ -512,12 +523,14 @@ export interface Product {
   id: string;
   tenantId: string;
   name: string;
-  category: 'pomadas' | 'barba' | 'bebidas' | 'cuidados' | 'outro';
+  category: string; // 'pomadas' | 'barba' | 'bebidas' | 'cuidados' | 'insumos' | string
   price: number;
   costPrice?: number;
   stockQuantity: number;
   minStock?: number;
   unit?: string;
+  supplier?: string;
+  notes?: string;
   active: boolean;
 }
 

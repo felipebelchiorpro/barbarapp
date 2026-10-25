@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Scissors,
   Plus,
@@ -13,26 +13,55 @@ import {
   Power,
   UploadSimple as Upload,
   Eye,
-  EyeSlash as EyeOff
+  EyeSlash as EyeOff,
+  FolderSimplePlus,
+  Tag,
+  ArrowCounterClockwise,
 } from '@phosphor-icons/react';
-import { Service } from '../../types';
+import { Service, ServiceCategoryConfig } from '../../types';
+import { DEFAULT_SERVICE_CATEGORIES } from '../../data/mockData';
 import { formatCurrency, formatDuration } from '../../utils/formatters';
 
 interface ServicesManagementViewProps {
   services: Service[];
+  categories?: ServiceCategoryConfig[];
   onAddService: (newService: Omit<Service, 'id'>) => void;
   onUpdateService: (service: Service) => void;
   onDeleteService: (serviceId: string) => void;
   onToggleActive: (serviceId: string) => void;
+  onUpdateCategories?: (categories: ServiceCategoryConfig[]) => void;
 }
 
 export const ServicesManagementView: React.FC<ServicesManagementViewProps> = ({
   services,
+  categories: propCategories,
   onAddService,
   onUpdateService,
   onDeleteService,
   onToggleActive,
+  onUpdateCategories,
 }) => {
+  // Categories state with persistence
+  const [categories, setCategories] = useState<ServiceCategoryConfig[]>(() => {
+    if (propCategories && propCategories.length > 0) return propCategories;
+    const saved = localStorage.getItem('naville_service_categories_v1');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return DEFAULT_SERVICE_CATEGORIES;
+      }
+    }
+    return DEFAULT_SERVICE_CATEGORIES;
+  });
+
+  // Category Management Modal & Filter
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [selectedFilterCategory, setSelectedFilterCategory] = useState<string>('todos');
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatDescription, setNewCatDescription] = useState('');
+  const [catActionError, setCatActionError] = useState<string | null>(null);
+
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
@@ -44,7 +73,7 @@ export const ServicesManagementView: React.FC<ServicesManagementViewProps> = ({
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState<number>(40);
   const [durationMinutes, setDurationMinutes] = useState<number>(30);
-  const [category, setCategory] = useState<'cabelo' | 'barba' | 'combos' | 'tratamento'>('cabelo');
+  const [category, setCategory] = useState<string>('cabelo');
   const [imageUrl, setImageUrl] = useState('');
   const [isActive, setIsActive] = useState<boolean>(true);
   const [isPopular, setIsPopular] = useState<boolean>(false);
@@ -153,6 +182,77 @@ export const ServicesManagementView: React.FC<ServicesManagementViewProps> = ({
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 
+  // Save Categories helper
+  const handleSaveCategoriesList = (updated: ServiceCategoryConfig[]) => {
+    setCategories(updated);
+    localStorage.setItem('naville_service_categories_v1', JSON.stringify(updated));
+    if (onUpdateCategories) {
+      onUpdateCategories(updated);
+    }
+  };
+
+  const handleAddCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCatActionError(null);
+    const trimmed = newCatName.trim();
+    if (!trimmed) {
+      setCatActionError('Digite o nome da categoria.');
+      return;
+    }
+
+    const slug = trimmed
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '_')
+      .replace(/_+/g, '_');
+
+    if (categories.some((c) => c.id === slug || c.name.toLowerCase() === trimmed.toLowerCase())) {
+      setCatActionError('Uma categoria com este nome já existe.');
+      return;
+    }
+
+    const updated = [
+      ...categories,
+      {
+        id: slug || `cat_${Date.now()}`,
+        name: trimmed,
+        description: newCatDescription.trim() || undefined,
+        active: true,
+      },
+    ];
+
+    handleSaveCategoriesList(updated);
+    setNewCatName('');
+    setNewCatDescription('');
+    setSuccessMessage(`Categoria "${trimmed}" criada com sucesso!`);
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleDeleteCategory = (catId: string) => {
+    const linkedCount = services.filter((s) => s.category === catId).length;
+    if (linkedCount > 0) {
+      const confirmDelete = window.confirm(
+        `Atenção: Existem ${linkedCount} serviço(s) nesta categoria. Os serviços continuarão salvos, mas não estarão mais associados a esta categoria. Deseja excluir mesmo assim?`
+      );
+      if (!confirmDelete) return;
+    }
+    const updated = categories.filter((c) => c.id !== catId);
+    handleSaveCategoriesList(updated);
+  };
+
+  const handleResetCategoriesToDefault = () => {
+    if (window.confirm('Restaurar categorias padrão (Corte & Cabelo, Barba, Barber Club, Combos, Tratamentos)?')) {
+      handleSaveCategoriesList(DEFAULT_SERVICE_CATEGORIES);
+    }
+  };
+
+  // Filtered Services based on active category chip
+  const filteredServices = useMemo(() => {
+    if (selectedFilterCategory === 'todos') return services;
+    return services.filter((s) => s.category === selectedFilterCategory);
+  }, [services, selectedFilterCategory]);
+
   return (
     <div className="space-y-4 text-left w-full animate-in fade-in duration-150">
       {/* Top Header Row */}
@@ -171,19 +271,30 @@ export const ServicesManagementView: React.FC<ServicesManagementViewProps> = ({
               </span>
             </div>
             <p className="text-xs text-zinc-400 mt-0.5">
-              Defina preços, durações e visibilidade para o agendamento online dos clientes.
+              Defina preços, durações e personalize categorias (Corte, Barba, Club, Combos, etc.).
             </p>
           </div>
         </div>
 
-        {/* Action: Adicionar Serviço */}
-        <button
-          onClick={handleOpenCreateModal}
-          className="h-9 px-3.5 rounded-xl bg-[#D4AF37] hover:bg-[#c59f2e] text-black text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-md shadow-amber-950/30 cursor-pointer shrink-0"
-        >
-          <Plus className="w-4 h-4 shrink-0" />
-          <span>Novo Serviço</span>
-        </button>
+        {/* Actions: Configurar Categorias + Adicionar Serviço */}
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <button
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="h-9 px-3 rounded-xl bg-zinc-800/90 hover:bg-zinc-700 text-zinc-200 border border-white/10 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+            title="Adicionar ou editar categorias da barbearia"
+          >
+            <FolderSimplePlus className="w-4 h-4 text-[#D4AF37] shrink-0" />
+            <span>Configurar Categorias</span>
+          </button>
+
+          <button
+            onClick={handleOpenCreateModal}
+            className="h-9 px-3.5 rounded-xl bg-[#D4AF37] hover:bg-[#c59f2e] text-black text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-md shadow-amber-950/30 cursor-pointer"
+          >
+            <Plus className="w-4 h-4 shrink-0" />
+            <span>Novo Serviço</span>
+          </button>
+        </div>
       </div>
 
       {/* Success Notification */}
@@ -194,11 +305,66 @@ export const ServicesManagementView: React.FC<ServicesManagementViewProps> = ({
         </div>
       )}
 
+      {/* Category Filter Pills */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+        <button
+          onClick={() => setSelectedFilterCategory('todos')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition border ${
+            selectedFilterCategory === 'todos'
+              ? 'bg-[#D4AF37] text-black border-[#D4AF37] font-bold shadow-sm'
+              : 'bg-[#18181B] text-zinc-400 border-white/10 hover:text-white'
+          }`}
+        >
+          Todos ({services.length})
+        </button>
+        {categories.map((cat) => {
+          const count = services.filter((s) => s.category === cat.id).length;
+          const isSelected = selectedFilterCategory === cat.id;
+          return (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedFilterCategory(cat.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition border flex items-center gap-1.5 ${
+                isSelected
+                  ? 'bg-[#D4AF37] text-black border-[#D4AF37] font-bold shadow-sm'
+                  : 'bg-[#18181B] text-zinc-400 border-white/10 hover:text-white'
+              }`}
+            >
+              <span>{cat.name}</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                  isSelected ? 'bg-black/20 text-black' : 'bg-zinc-800 text-zinc-400'
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Grid de Serviços Cadastrados */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {services.map((service) => {
-          const isActiveService = service.active !== false;
-          const isCombo = service.durationMinutes === 60;
+      {filteredServices.length === 0 ? (
+        <div className="p-8 text-center rounded-2xl bg-[#18181B] border border-white/5 space-y-3">
+          <Tag className="w-8 h-8 text-zinc-500 mx-auto" />
+          <p className="text-sm text-zinc-400">
+            Nenhum serviço encontrado nesta categoria.
+          </p>
+          <button
+            onClick={handleOpenCreateModal}
+            className="px-3.5 py-1.5 rounded-xl bg-[#D4AF37] text-black text-xs font-bold inline-flex items-center gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Cadastrar Serviço Aqui</span>
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filteredServices.map((service) => {
+            const isActiveService = service.active !== false;
+            const isCombo = service.durationMinutes === 60;
+            const catObj = categories.find((c) => c.id === service.category);
+            const categoryLabel = catObj?.name || service.category;
 
           return (
             <div
@@ -267,11 +433,17 @@ export const ServicesManagementView: React.FC<ServicesManagementViewProps> = ({
                       </span>
                     </div>
 
-                    {service.popular && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-300 bg-amber-500/15 px-1.5 py-0.2 rounded mt-1 border border-amber-500/30">
-                        <Sparkles className="w-2.5 h-2.5" /> Destaque
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#D4AF37] bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                        <Tag className="w-2.5 h-2.5" />
+                        <span>{categoryLabel}</span>
                       </span>
-                    )}
+                      {service.popular && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-300 bg-amber-500/15 px-1.5 py-0.5 rounded-md border border-amber-500/30">
+                          <Sparkles className="w-2.5 h-2.5" /> Destaque
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -332,6 +504,7 @@ export const ServicesManagementView: React.FC<ServicesManagementViewProps> = ({
           );
         })}
       </div>
+      )}
 
       {/* Modal de Criação / Edição de Serviço */}
       {isModalOpen && (
@@ -429,29 +602,33 @@ export const ServicesManagementView: React.FC<ServicesManagementViewProps> = ({
 
               {/* Categoria */}
               <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                  Categoria
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {(
-                    [
-                      { id: 'cabelo', label: 'Cabelo' },
-                      { id: 'barba', label: 'Barba' },
-                      { id: 'combos', label: 'Combos' },
-                      { id: 'tratamento', label: 'Tratamento' },
-                    ] as const
-                  ).map((cat) => (
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-zinc-300">
+                    Categoria do Serviço
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsCategoryModalOpen(true)}
+                    className="text-[11px] text-[#D4AF37] hover:underline flex items-center gap-1 font-semibold"
+                  >
+                    <FolderSimplePlus className="w-3.5 h-3.5" />
+                    <span>+ Nova Categoria</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {categories.map((cat) => (
                     <button
                       key={cat.id}
                       type="button"
                       onClick={() => setCategory(cat.id)}
-                      className={`h-9 rounded-xl text-xs font-medium border transition ${
+                      className={`h-9 px-2 rounded-xl text-xs font-medium border transition truncate ${
                         category === cat.id
                           ? 'bg-amber-500/20 text-[#D4AF37] border-amber-500/40 font-bold'
                           : 'bg-zinc-900 border-white/10 text-zinc-400 hover:text-white'
                       }`}
                     >
-                      {cat.label}
+                      {cat.name}
                     </button>
                   ))}
                 </div>
@@ -573,6 +750,140 @@ export const ServicesManagementView: React.FC<ServicesManagementViewProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Configurar Categorias de Serviços */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-lg bg-[#18181B] border border-white/10 rounded-2xl shadow-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[#D4AF37] flex items-center justify-center">
+                  <FolderSimplePlus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white font-display">
+                    Configurar Categorias da Barbearia
+                  </h3>
+                  <p className="text-[11px] text-zinc-400">
+                    Crie categorias personalizadas (ex: Corte, Barba, Barber Club, Combos, Sobrancelha).
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsCategoryModalOpen(false);
+                  setCatActionError(null);
+                }}
+                className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Error Message */}
+            {catActionError && (
+              <div className="p-2.5 rounded-xl bg-red-950/40 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{catActionError}</span>
+              </div>
+            )}
+
+            {/* Form: Nova Categoria */}
+            <form onSubmit={handleAddCategory} className="p-3.5 rounded-xl bg-zinc-900/80 border border-white/5 space-y-2.5">
+              <span className="text-xs font-bold text-white block">Adicionar Nova Categoria</span>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Nome (ex: Barber Club, Sobrancelha, Química)"
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  className="flex-1 h-9 px-3 rounded-xl bg-zinc-950 border border-white/10 text-white text-xs placeholder-zinc-500 focus:outline-none focus:border-[#D4AF37]"
+                />
+                <button
+                  type="submit"
+                  className="h-9 px-4 rounded-xl bg-[#D4AF37] hover:bg-[#c59f2e] text-black text-xs font-bold flex items-center gap-1 transition active:scale-95 shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Adicionar</span>
+                </button>
+              </div>
+              <input
+                type="text"
+                placeholder="Breve descrição opcional (ex: Serviços exclusivos para membros assinantes)"
+                value={newCatDescription}
+                onChange={(e) => setNewCatDescription(e.target.value)}
+                className="w-full h-8 px-3 rounded-lg bg-zinc-950 border border-white/10 text-white text-[11px] placeholder-zinc-500 focus:outline-none focus:border-[#D4AF37]"
+              />
+            </form>
+
+            {/* Lista de Categorias Atuais */}
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-zinc-400 block">
+                Categorias Ativas ({categories.length})
+              </span>
+
+              <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                {categories.map((cat) => {
+                  const linkedServicesCount = services.filter((s) => s.category === cat.id).length;
+                  return (
+                    <div
+                      key={cat.id}
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-900 border border-white/5 hover:border-white/10 transition"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <Tag className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
+                          <span className="text-xs font-bold text-white truncate">{cat.name}</span>
+                          <span className="text-[10px] px-2 py-0.2 rounded-full bg-zinc-800 text-zinc-400 border border-white/5 shrink-0">
+                            {linkedServicesCount} {linkedServicesCount === 1 ? 'serviço' : 'serviços'}
+                          </span>
+                        </div>
+                        {cat.description && (
+                          <p className="text-[11px] text-zinc-400 mt-0.5 truncate pl-5">
+                            {cat.description}
+                          </p>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCategory(cat.id)}
+                        className="p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition shrink-0 ml-2"
+                        title="Remover categoria"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="pt-3 border-t border-white/10 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleResetCategoriesToDefault}
+                className="text-xs text-zinc-400 hover:text-amber-400 flex items-center gap-1.5 transition"
+              >
+                <ArrowCounterClockwise className="w-3.5 h-3.5" />
+                <span>Restaurar Padrões</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCategoryModalOpen(false);
+                  setCatActionError(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold transition"
+              >
+                Concluir
+              </button>
+            </div>
           </div>
         </div>
       )}

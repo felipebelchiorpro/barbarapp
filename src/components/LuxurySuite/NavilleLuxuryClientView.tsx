@@ -391,6 +391,7 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
       if (selectedCategory === 'corte') {
         matchesCategory =
           s.category === 'cabelo' ||
+          s.category === 'corte' ||
           /corte|cabelo|fade/i.test(s.name);
       } else if (selectedCategory === 'barba') {
         matchesCategory =
@@ -399,11 +400,15 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
       } else if (selectedCategory === 'combo') {
         matchesCategory =
           s.category === 'combos' ||
-          /combo|completo|\+/i.test(s.name);
+          s.category === 'combo' ||
+          s.category === 'club' ||
+          /combo|completo|\+|club/i.test(s.name);
       } else if (selectedCategory === 'tratamento') {
         matchesCategory =
           s.category === 'tratamento' ||
-          /sobrancelha|limpeza|hidrata/i.test(s.name);
+          /sobrancelha|limpeza|hidrata|quimica/i.test(s.name);
+      } else if (selectedCategory !== 'todos') {
+        matchesCategory = s.category === selectedCategory;
       }
 
       return matchesSearch && matchesCategory;

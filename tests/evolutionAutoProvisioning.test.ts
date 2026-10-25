@@ -12,6 +12,8 @@ describe('⚡ SUITE: EVOLUTION API AUTO-PROVISIONING & QR CODE RECOVERY', () => 
       baseUrl: 'http://localhost:8080',
       apiKey: 'test-key-123',
       instanceName: 'barbearia_teste_auto',
+      autoSendEnabled: true,
+      reminderHoursBefore: 2,
     };
 
     // Testa mock de criação
@@ -24,6 +26,8 @@ describe('⚡ SUITE: EVOLUTION API AUTO-PROVISIONING & QR CODE RECOVERY', () => 
       baseUrl: 'http://localhost:8080',
       apiKey: 'test-key-123',
       instanceName: 'barbearia_ls',
+      autoSendEnabled: true,
+      reminderHoursBefore: 2,
     };
 
     // Verifica assinatura e parâmetros
