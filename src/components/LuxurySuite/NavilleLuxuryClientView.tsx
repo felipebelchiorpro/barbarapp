@@ -595,6 +595,34 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
       <div className="w-full max-w-md md:max-w-xl bg-[#0F0F11] min-h-screen flex flex-col relative pb-32 border-x border-[#2A2A32]/40 shadow-2xl">
         
         {/* ========================================================================= */}
+        {/* TOP APP HEADER: LOGO OFICIAL + NOME DO APP 'NAVILLE BARBER' */}
+        {/* ========================================================================= */}
+        <header className="sticky top-0 z-40 bg-[#0F0F11]/95 backdrop-blur-md border-b border-[#2A2A32]/60 px-4 py-2.5 transition-all flex items-center justify-between">
+          <div className="flex items-center gap-2.5 select-none">
+            <img
+              src="/naville_logo.png"
+              alt="Naville Barber"
+              className="w-8 h-8 object-contain shrink-0 drop-shadow-[0_2px_8px_rgba(212,175,55,0.45)]"
+            />
+            <div className="flex flex-col">
+              <span className="font-display font-black tracking-wider text-sm sm:text-base text-white uppercase leading-none">
+                Naville Barber
+              </span>
+              <span className="text-[9px] text-[#D4A373] font-medium tracking-tight mt-0.5">
+                Tecnologia Naville
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Online
+            </span>
+          </div>
+        </header>
+
+        {/* ========================================================================= */}
         {/* HERO COVER WITH ASYMMETRIC CURVED SCOOP OVERLAY */}
         {/* ========================================================================= */}
         <div
