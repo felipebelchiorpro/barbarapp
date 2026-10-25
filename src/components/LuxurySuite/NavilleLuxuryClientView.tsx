@@ -600,15 +600,15 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
         <header className="sticky top-0 z-40 bg-[#0F0F11]/95 backdrop-blur-md border-b border-[#2A2A32]/60 px-4 py-2.5 transition-all flex items-center justify-between">
           <div className="flex items-center gap-2.5 select-none">
             <img
-              src="/naville_logo.png"
+              src="/naville_logo_white.png"
               alt="Naville Barber"
-              className="w-8 h-8 object-contain shrink-0 drop-shadow-[0_2px_8px_rgba(212,175,55,0.45)]"
+              className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0"
             />
             <div className="flex flex-col">
               <span className="font-display font-black tracking-wider text-sm sm:text-base text-white uppercase leading-none">
                 Naville Barber
               </span>
-              <span className="text-[9px] text-[#D4A373] font-medium tracking-tight mt-0.5">
+              <span className="text-[9px] text-zinc-400 font-medium tracking-tight mt-0.5">
                 Tecnologia Naville
               </span>
             </div>
@@ -703,9 +703,9 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#261E14] to-[#141416] p-0.5 border-2 border-[#D4A373] shadow-lg flex items-center justify-center">
                   <div className="w-full h-full rounded-[14px] bg-[#16161A] flex items-center justify-center p-2">
                     <img
-                      src="/naville_logo.png"
+                      src="/naville_logo_white.png"
                       alt={tenantConfig.name || 'Naville Barber'}
-                      className="w-10 h-10 object-contain drop-shadow-[0_2px_8px_rgba(212,163,115,0.5)]"
+                      className="w-9 h-9 object-contain"
                     />
                   </div>
                 </div>
@@ -1578,6 +1578,15 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
             <span>{errorMessage}</span>
           </div>
         )}
+
+        {/* Discreet Luxury Footer */}
+        <footer className="pt-6 pb-28 px-4 text-center text-zinc-500 text-[11px] select-none">
+          <p className="flex items-center justify-center gap-1.5 font-medium tracking-wide text-zinc-400">
+            <span>© {new Date().getFullYear()}</span>
+            <span>·</span>
+            <span>Todos os direitos reservados para <strong className="text-zinc-300 font-semibold">Naville Barber</strong></span>
+          </p>
+        </footer>
 
         {/* ========================================================================= */}
         {/* FIXED LUXURY CHECKOUT BAR */}

@@ -30,9 +30,9 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Brand / Logo */}
         <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 select-none">
           <img
-            src="/naville_logo.png"
+            src="/naville_logo_white.png"
             alt="Naville"
-            className="w-8 h-8 sm:w-9 sm:h-9 object-contain shrink-0 drop-shadow-[0_2px_8px_rgba(212,175,55,0.45)]"
+            className="w-8 h-8 sm:w-9 sm:h-9 object-contain shrink-0"
           />
           <div className="min-w-0">
             <span className="font-display text-sm sm:text-base font-extrabold tracking-wider text-white uppercase truncate block">

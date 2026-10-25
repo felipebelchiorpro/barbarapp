@@ -220,9 +220,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         <div className="flex items-center justify-between pb-3.5 border-b border-white/5">
           <div className="flex items-center gap-3">
             <img
-              src="/naville_logo.png"
+              src="/naville_logo_white.png"
               alt="Naville"
-              className="w-10 h-10 object-contain shrink-0 drop-shadow-[0_2px_10px_rgba(212,175,55,0.4)]"
+              className="w-9 h-9 sm:w-10 sm:h-10 object-contain shrink-0"
             />
             <div>
               <span className="font-display text-sm font-extrabold tracking-wider text-white uppercase block leading-tight">

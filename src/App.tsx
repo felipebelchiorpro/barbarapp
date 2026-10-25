@@ -1545,9 +1545,7 @@ export default function App() {
               <>
                 <span className="text-zinc-500 font-medium">Agendamento Online 24h</span>
                 <span>·</span>
-                <span>© {new Date().getFullYear()} {activeTenant.name || 'Naville Barber'}</span>
-                <span>·</span>
-                <span className="text-zinc-600">Todos os direitos reservados</span>
+                <span>© {new Date().getFullYear()} Todos os direitos reservados para Naville Barber</span>
               </>
             )}
           </div>
