@@ -8,6 +8,10 @@ import { Request, Response, NextFunction } from 'express';
 
 // Origens padrão autorizadas em ambiente de desenvolvimento e produção
 export const DEFAULT_ALLOWED_ORIGINS = [
+  'https://navillebarber.pro',
+  'https://www.navillebarber.pro',
+  'http://navillebarber.pro',
+  'http://www.navillebarber.pro',
   'https://naville.app',
   'https://www.naville.app',
   'https://barber.naville.app',
@@ -32,7 +36,7 @@ export function getAllowedOrigins(): string[] {
 
 /**
  * Verifica se a origem da requisição é estritamente permitida
- * Suporta subdomínios confiáveis do Cloudflare Pages (*.pages.dev) e da Naville (*.naville.app)
+ * Suporta subdomínios confiáveis do Cloudflare Pages (*.pages.dev) e da Naville (*.naville.app e *.navillebarber.pro)
  */
 export function isOriginAllowed(origin: string | undefined): boolean {
   if (!origin) {
@@ -52,8 +56,8 @@ export function isOriginAllowed(origin: string | undefined): boolean {
     const url = new URL(origin);
     const hostname = url.hostname;
 
-    // Subdomínios oficiais da Naville (ex: tenant.naville.app)
-    if (hostname.endsWith('.naville.app')) {
+    // Subdomínios oficiais da Naville (ex: tenant.naville.app ou tenant.navillebarber.pro)
+    if (hostname.endsWith('.naville.app') || hostname.endsWith('.navillebarber.pro') || hostname === 'navillebarber.pro') {
       return true;
     }
 

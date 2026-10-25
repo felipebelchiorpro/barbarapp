@@ -26,8 +26,10 @@
     }
 }
 
-# 1. Configuração para Teste via IP Direto na VPS (HTTP 80)
-:80, http://173.249.51.210 {
+# 1. Configuração para Teste via IP Direto na VPS (HTTP 80) e fallback Cloudflare Flexible
+:80, http://173.249.51.210, http://navillebarber.pro, http://www.navillebarber.pro {
+    import security_headers
+
     # PocketBase API e Painel Admin
     handle /api/* {
         reverse_proxy pocketbase:8090
@@ -51,6 +53,29 @@
     }
 }
 
+# 2. Domínio Oficial de Produção: navillebarber.pro (HTTPS)
+navillebarber.pro, www.navillebarber.pro {
+    tls {
+        protocols tls1.3
+    }
+    import security_headers
+
+    handle /api/* {
+        reverse_proxy pocketbase:8090
+    }
+    handle /_/* {
+        reverse_proxy pocketbase:8090
+    }
+    handle /evolution/* {
+        uri strip_prefix /evolution
+        reverse_proxy evolution-api:8080
+    }
+    handle {
+        reverse_proxy frontend-app:3000
+    }
+}
+
+# 3. Domínios adicionais legados
 naville.app, www.naville.app, api.naville.app, whatsapp.naville.app {
     tls {
         protocols tls1.3
