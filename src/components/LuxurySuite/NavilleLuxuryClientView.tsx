@@ -600,9 +600,11 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
         <header className="sticky top-0 z-40 bg-[#0F0F11]/95 backdrop-blur-md border-b border-[#2A2A32]/60 px-4 py-2.5 transition-all">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#D4A373] to-[#B88656] flex items-center justify-center text-[#0F0F11] font-serif font-black text-sm tracking-wider shadow-sm">
-                N
-              </div>
+              <img
+                src="/naville_logo.png"
+                alt="Naville"
+                className="w-8 h-8 object-contain shrink-0 drop-shadow-[0_2px_8px_rgba(212,163,115,0.4)]"
+              />
               <div className="flex flex-col">
                 <span className="font-serif tracking-widest text-[11px] uppercase font-bold text-[#E8C5A0] leading-none">
                   {tenantConfig.name || 'NAVILLE SUITE'}

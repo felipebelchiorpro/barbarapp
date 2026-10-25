@@ -29,9 +29,11 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
         {/* Brand / Logo */}
         <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 select-none">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#D4AF37] to-[#997715] flex items-center justify-center text-black shadow-sm shrink-0">
-            <Scissors className="w-4 h-4" />
-          </div>
+          <img
+            src="/naville_logo.png"
+            alt="Naville"
+            className="w-8 h-8 sm:w-9 sm:h-9 object-contain shrink-0 drop-shadow-[0_2px_8px_rgba(212,175,55,0.45)]"
+          />
           <div className="min-w-0">
             <span className="font-display text-sm sm:text-base font-extrabold tracking-wider text-white uppercase truncate block">
               {brandName || (currentView === 'super-admin' ? 'Naville' : 'Naville Barber')}

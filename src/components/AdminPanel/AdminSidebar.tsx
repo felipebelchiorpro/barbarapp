@@ -219,9 +219,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         {/* Brand & Mobile Close Button */}
         <div className="flex items-center justify-between pb-3.5 border-b border-white/5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#D4AF37] to-[#997715] flex items-center justify-center text-black shadow-md shrink-0">
-              <Scissors className="w-5.5 h-5.5" weight="bold" />
-            </div>
+            <img
+              src="/naville_logo.png"
+              alt="Naville"
+              className="w-10 h-10 object-contain shrink-0 drop-shadow-[0_2px_10px_rgba(212,175,55,0.4)]"
+            />
             <div>
               <span className="font-display text-sm font-extrabold tracking-wider text-white uppercase block leading-tight">
                 {tenantName || 'Naville Barber'}
