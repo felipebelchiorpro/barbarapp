@@ -12,20 +12,16 @@ import {
   WarningCircle,
   CheckCircle,
   ArrowClockwise,
-  Key,
   ShieldWarning,
   Sparkle,
   Buildings,
   DeviceMobile,
 } from '@phosphor-icons/react';
 import { AuthSession, TenantConfig, UserRole } from '../../types';
-import { WhatsAppIcon } from '../WhatsAppIcon';
 import {
   MOCK_USERS,
   loginWithEmail,
   quickLoginAs,
-  requestWhatsAppOtp,
-  verifyWhatsAppOtp,
 } from '../../services/authService';
 import {
   sanitizeAuthInput,
@@ -33,8 +29,6 @@ import {
   recordLoginFailure,
   recordLoginSuccess,
   evaluatePasswordStrength,
-  generateTwoFactorChallenge,
-  verifyTwoFactorChallenge,
   simulateTimingDefenseDelay,
   logSecurityAudit,
   LockoutStatus,
@@ -72,12 +66,6 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // 2FA / WhatsApp OTP
-  const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [otpTarget, setOtpTarget] = useState('');
-  const [isOtpSent, setIsOtpSent] = useState(false);
-
   // Estados de Carregamento e Segurança
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -113,7 +101,6 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
     setTenantRole(role);
     setErrorMessage('');
     setSuccessNotice('');
-    setRequiresTwoFactor(false);
   };
 
   // Alterna para o Portal Master Super Admin
@@ -121,7 +108,6 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
     setPortalMode('super-admin');
     setErrorMessage('');
     setSuccessNotice('');
-    setRequiresTwoFactor(false);
     setEmailOrPhone('');
     setPassword('');
   };
@@ -131,7 +117,6 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
     setPortalMode('tenant');
     setErrorMessage('');
     setSuccessNotice('');
-    setRequiresTwoFactor(false);
     setTenantRole('owner');
     setEmailOrPhone('');
     setPassword('');
@@ -171,7 +156,7 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
           cleanInput.toLowerCase() === 'superadmin@naville.app' ||
           cleanInput.toLowerCase().startsWith('admin@');
 
-        if (!isSuperAdminEmail) {
+        if (!isSuperAdminEmail || password.length < 4) {
           const failStatus = recordLoginFailure(cleanInput, undefined, 'Naville Master Gate');
           setLockout(failStatus);
           setErrorMessage('Credenciais Master não autorizadas para o Portal Super Admin.');
@@ -179,66 +164,13 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
           return;
         }
 
-        // Se o Super Admin ainda não passou pela verificação 2FA
-        if (!requiresTwoFactor) {
-          const challenge = generateTwoFactorChallenge(cleanInput, 'superadmin');
-          setOtpTarget(cleanInput);
-          setOtpCode(challenge.token); // Pré-preenchido para homologação ágil
-          setRequiresTwoFactor(true);
-          setIsOtpSent(true);
-          setSuccessNotice('Chave 2FA Master gerada com sucesso. Insira o token de 6 dígitos.');
-          setIsLoading(false);
-          return;
-        }
-
-        // Validando 2FA do Super Admin
-        const verifyResult = verifyTwoFactorChallenge(otpTarget, otpCode);
-        if (!verifyResult.valid) {
-          const failStatus = recordLoginFailure(cleanInput, undefined, 'Naville Master Gate');
-          setLockout(failStatus);
-          setErrorMessage(verifyResult.error || 'Token de Segurança 2FA incorreto.');
-          setIsLoading(false);
-          return;
-        }
-
         // Sucesso do Super Admin
-        const user = MOCK_USERS.find((u) => u.role === 'superadmin') || MOCK_USERS[0];
         const res = quickLoginAs('superadmin', currentTenant.id, undefined, tenants);
         if (res.success && res.session) {
           recordLoginSuccess(cleanInput, res.session);
           onLoginSuccess(res.session, 'super-admin');
         } else {
           setErrorMessage(res.error || 'Falha ao autenticar sessão Master.');
-        }
-        setIsLoading(false);
-        return;
-      }
-
-      // Se estiver no portal da Barbearia (Dono ou Barbeiro)
-      // Se tiver 2FA acionado
-      if (requiresTwoFactor) {
-        const verifyResult = verifyTwoFactorChallenge(otpTarget, otpCode);
-        if (!verifyResult.valid) {
-          const failStatus = recordLoginFailure(cleanInput, currentTenant.id, currentTenant.name);
-          setLockout(failStatus);
-          setErrorMessage(verifyResult.error || 'Código OTP de verificação incorreto.');
-          setIsLoading(false);
-          return;
-        }
-
-        // Sucesso após 2FA
-        const role = tenantRole;
-        const res = quickLoginAs(
-          role,
-          currentTenant.id,
-          role === 'barber' ? 'barber-diego' : undefined,
-          tenants
-        );
-        if (res.success && res.session) {
-          recordLoginSuccess(cleanInput, res.session);
-          onLoginSuccess(res.session, role === 'owner' ? 'admin' : 'barber');
-        } else {
-          setErrorMessage(res.error || 'Falha ao validar sessão.');
         }
         setIsLoading(false);
         return;
@@ -284,18 +216,6 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Solicitar 2FA via WhatsApp para Dono ou Barbeiro
-  const handleRequestWhatsAppTwoFactor = () => {
-    setErrorMessage('');
-    const targetPhone = currentTenant.ownerPhone || '11981234567';
-    const challenge = generateTwoFactorChallenge(targetPhone, tenantRole);
-    setOtpTarget(targetPhone);
-    setOtpCode(challenge.token); // Pré-preenchido para homologação
-    setRequiresTwoFactor(true);
-    setIsOtpSent(true);
-    setSuccessNotice(`Código 2FA de 6 dígitos gerado para WhatsApp (${targetPhone}).`);
   };
 
   return (
@@ -508,9 +428,7 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
           {/* FORMULÁRIO DE LOGIN */}
           {/* ============================================================== */}
           <form onSubmit={handleLoginSubmit} className="space-y-4">
-            {/* Se Não estiver na etapa 2FA */}
-            {!requiresTwoFactor ? (
-              <>
+
                 {/* Identificador (Email ou Telefone) */}
                 <div>
                   <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
@@ -588,58 +506,6 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
                   )}
                 </div>
 
-                {/* Opção 2FA via WhatsApp para Dono/Barbeiro */}
-                {portalMode === 'tenant' && (
-                  <div className="pt-1">
-                    <button
-                      type="button"
-                      onClick={handleRequestWhatsAppTwoFactor}
-                      className="w-full py-2 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
-                    >
-                      <WhatsAppIcon variant="official" size={14} />
-                      <span>Entrar com Código 2FA via WhatsApp</span>
-                    </button>
-                  </div>
-                )}
-              </>
-            ) : (
-              /* ETAPA 2: VERIFICAÇÃO DE 2FA / TOKEN */
-              <div className="space-y-3 p-4 rounded-2xl bg-[#0F0F12] border border-[#D4A373]/30 animate-in fade-in">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#D4A373]">
-                  <Key className="w-4 h-4" />
-                  <span>Desafio 2FA de Segurança Ativo</span>
-                </div>
-                <p className="text-[11px] text-zinc-400">
-                  {portalMode === 'super-admin'
-                    ? 'Digite o Token Master de 6 dígitos gerado pelo sistema de proteção.'
-                    : `Insira o código de 6 dígitos enviado para ${otpTarget}.`}
-                </p>
-
-                <div>
-                  <input
-                    type="text"
-                    maxLength={6}
-                    required
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(sanitizeAuthInput(e.target.value))}
-                    placeholder="123456"
-                    className="w-full text-center tracking-[0.4em] font-mono text-lg py-2.5 rounded-xl bg-black/50 border border-white/20 text-white focus:outline-none focus:border-[#D4A373]"
-                  />
-                  <span className="text-[10px] text-zinc-500 block text-center mt-1">
-                    Código válido por 5 minutos (Anti-Replay Protection)
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setRequiresTwoFactor(false)}
-                  className="text-[11px] text-zinc-400 hover:text-white underline block text-center w-full"
-                >
-                  Voltar para senha
-                </button>
-              </div>
-            )}
-
             {/* Botão de Envio com Proteção Anti-Brute-Force */}
             <button
               type="submit"
@@ -654,11 +520,6 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
                 <>
                   <ArrowClockwise className="w-4 h-4 animate-spin" />
                   <span>Validando Criptografia...</span>
-                </>
-              ) : requiresTwoFactor ? (
-                <>
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Confirmar Código 2FA</span>
                 </>
               ) : (
                 <>
