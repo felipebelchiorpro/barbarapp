@@ -34,29 +34,16 @@ export const BarberLoginModal: React.FC<BarberLoginModalProps> = ({
   onLoginSuccess,
   tenants,
 }) => {
-  const [activeTab, setActiveTab] = useState<'quick' | 'email' | 'whatsapp'>('quick');
+  const [activeTab, setActiveTab] = useState<'email' | 'whatsapp'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('11981234567');
+  const [phone, setPhone] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isBlockedError, setIsBlockedError] = useState(false);
 
   if (!isOpen) return null;
-
-  const handleQuickLogin = (role: UserRole, tenantId?: string, barberId?: string) => {
-    setErrorMessage('');
-    setIsBlockedError(false);
-    const res = quickLoginAs(role, tenantId, barberId, tenants);
-    if (res.success && res.session) {
-      onLoginSuccess(res.session);
-      onClose();
-    } else {
-      setErrorMessage(res.error || 'Falha ao autenticar');
-      setIsBlockedError(Boolean(res.blockedByTenant));
-    }
-  };
 
   const handleEmailLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,7 +63,7 @@ export const BarberLoginModal: React.FC<BarberLoginModalProps> = ({
     setErrorMessage('');
     const { code } = requestWhatsAppOtp(phone);
     setIsOtpSent(true);
-    setOtpCode(code); // Pré-preenche para conveniência na homologação
+    setOtpCode(code);
   };
 
   const handleVerifyOtp = (e: React.FormEvent) => {
@@ -102,7 +89,7 @@ export const BarberLoginModal: React.FC<BarberLoginModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold font-display text-white">Autenticação Segura</h2>
-              <p className="text-[11px] text-zinc-400">Isolamento Multi-Tenant & Modo Cadeira</p>
+              <p className="text-[11px] text-zinc-400">Acesso Restrito ao Profissional</p>
             </div>
           </div>
           <button
@@ -115,21 +102,6 @@ export const BarberLoginModal: React.FC<BarberLoginModalProps> = ({
 
         {/* Tab switch */}
         <div className="flex border-b border-white/5 text-xs font-semibold p-1.5 bg-black/40">
-          <button
-            onClick={() => {
-              setActiveTab('quick');
-              setErrorMessage('');
-            }}
-            className={`flex-1 py-2 rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
-              activeTab === 'quick'
-                ? 'bg-[#D4AF37] text-black font-extrabold shadow-md'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            <UsersThree className="w-4 h-4" weight="bold" />
-            <span>Demonstração RBAC</span>
-          </button>
-
           <button
             onClick={() => {
               setActiveTab('email');
@@ -181,60 +153,6 @@ export const BarberLoginModal: React.FC<BarberLoginModalProps> = ({
         )}
 
         <div className="p-5">
-          {/* TAB 1: ACESSO RÁPIDO PARA DEMONSTRAÇÃO DOS PAPÉIS */}
-          {activeTab === 'quick' && (
-            <div className="space-y-3">
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                Selecione um papel para alternar instantaneamente o contexto de sessão e validar as regras de segurança RLS:
-              </p>
-
-              <div className="space-y-2">
-                {/* Barbeiro Diego */}
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('barber', 'tenant-barbearia-ls', 'barber-diego')}
-                  className="w-full p-3 rounded-2xl bg-black/40 hover:bg-[#D4AF37]/15 border border-white/5 hover:border-amber-500/40 flex items-center justify-between transition cursor-pointer text-left group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-[#D4AF37] flex items-center justify-center font-bold text-xs">
-                      DB
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-white block group-hover:text-amber-400">
-                        Diego Barbeiro
-                      </span>
-                      <span className="text-[10px] text-zinc-400">PWA Modo Cadeira · Naville Barber</span>
-                    </div>
-                  </div>
-                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-500/15 text-[#D4AF37] border border-amber-500/30">
-                    Barbeiro
-                  </span>
-                </button>
-
-                {/* Barbeiro Marcos */}
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('barber', 'tenant-barbearia-ls', 'barber-marcos')}
-                  className="w-full p-3 rounded-2xl bg-black/40 hover:bg-[#D4AF37]/15 border border-white/5 hover:border-amber-500/40 flex items-center justify-between transition cursor-pointer text-left group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-[#D4AF37] flex items-center justify-center font-bold text-xs">
-                      MV
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-white block group-hover:text-amber-400">
-                        Marcos Vinicius (Barbeiro)
-                      </span>
-                      <span className="text-[10px] text-zinc-400">PWA Modo Cadeira · Naville Barber</span>
-                    </div>
-                  </div>
-                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-500/15 text-[#D4AF37] border border-amber-500/30">
-                    Barbeiro
-                  </span>
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* TAB 2: LOGIN TRADICIONAL COM E-MAIL E SENHA */}
           {activeTab === 'email' && (

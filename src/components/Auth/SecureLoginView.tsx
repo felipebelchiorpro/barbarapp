@@ -66,13 +66,10 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
   // Tenant selecionado
   const currentTenant =
     tenants.find((t) => t.id === activeTenantId) || tenants[0] || ({} as TenantConfig);
-  const [isTenantPickerOpen, setIsTenantPickerOpen] = useState(false);
 
   // Campos de entrada
-  const [emailOrPhone, setEmailOrPhone] = useState(() => {
-    return initialRole === 'barber' ? 'diego@navillebarber.com' : 'dono@navillebarber.com';
-  });
-  const [password, setPassword] = useState('••••••••••••');
+  const [emailOrPhone, setEmailOrPhone] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   // 2FA / WhatsApp OTP
@@ -117,13 +114,6 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
     setErrorMessage('');
     setSuccessNotice('');
     setRequiresTwoFactor(false);
-    if (role === 'owner') {
-      setEmailOrPhone('dono@navillebarber.com');
-      setPassword('••••••••••••');
-    } else {
-      setEmailOrPhone('diego@navillebarber.com');
-      setPassword('••••••••••••');
-    }
   };
 
   // Alterna para o Portal Master Super Admin
@@ -132,8 +122,8 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
     setErrorMessage('');
     setSuccessNotice('');
     setRequiresTwoFactor(false);
-    setEmailOrPhone('superadmin@naville.app');
-    setPassword('••••••••••••');
+    setEmailOrPhone('');
+    setPassword('');
   };
 
   // Alterna de volta para o Portal da Barbearia
@@ -142,7 +132,9 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
     setErrorMessage('');
     setSuccessNotice('');
     setRequiresTwoFactor(false);
-    handleSelectRole('owner');
+    setTenantRole('owner');
+    setEmailOrPhone('');
+    setPassword('');
   };
 
   // Validação de força de senha
@@ -306,29 +298,6 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
     setSuccessNotice(`Código 2FA de 6 dígitos gerado para WhatsApp (${targetPhone}).`);
   };
 
-  // Atalho de preenchimento de teste rápido (Quick Fill de Homologação)
-  const handleQuickFill = (preset: 'owner' | 'barber' | 'superadmin') => {
-    setErrorMessage('');
-    setSuccessNotice('');
-    setRequiresTwoFactor(false);
-
-    if (preset === 'superadmin') {
-      setPortalMode('super-admin');
-      setEmailOrPhone('superadmin@naville.app');
-      setPassword('••••••••••••');
-    } else if (preset === 'owner') {
-      setPortalMode('tenant');
-      setTenantRole('owner');
-      setEmailOrPhone('dono@navillebarber.com');
-      setPassword('••••••••••••');
-    } else {
-      setPortalMode('tenant');
-      setTenantRole('barber');
-      setEmailOrPhone('diego@navillebarber.com');
-      setPassword('••••••••••••');
-    }
-  };
-
   return (
     <div className="min-h-screen w-full bg-[#0D0D11] text-zinc-100 flex flex-col justify-between selection:bg-[#D4A373]/30 selection:text-white relative overflow-x-hidden">
       {/* Dynamic Background Grid & Atmosphere */}
@@ -482,19 +451,10 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center justify-center gap-1.5">
+              <div className="flex items-center justify-center">
                 <h1 className="text-xl font-extrabold text-white tracking-tight">
                   {currentTenant.name || 'Naville Barber'}
                 </h1>
-                {tenants.length > 1 && (
-                  <button
-                    onClick={() => setIsTenantPickerOpen(true)}
-                    title="Alternar barbearia"
-                    className="text-[10px] px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#D4A373] font-medium border border-white/10 transition-colors"
-                  >
-                    Trocar
-                  </button>
-                )}
               </div>
               <p className="text-xs text-zinc-400 mt-1">
                 Área de login segura da barbearia ({currentTenant.cidade || 'Unidade Principal'})
@@ -715,38 +675,8 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
             </button>
           </form>
 
-          {/* Quick-Fill Homologation Shortcuts (Facilidade de Teste pelo Usuário) */}
-          <div className="mt-5 pt-4 border-t border-white/10">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500 block mb-2 text-center">
-              Acesso Rápido para Demonstração (1 Clique)
-            </span>
-            <div className="grid grid-cols-3 gap-1.5 text-[11px]">
-              <button
-                type="button"
-                onClick={() => handleQuickFill('owner')}
-                className="py-1.5 px-2 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/5 truncate transition-colors text-center"
-              >
-                👔 Dono (Felipe)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('barber')}
-                className="py-1.5 px-2 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/5 truncate transition-colors text-center"
-              >
-                ✂️ Barbeiro (Diego)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('superadmin')}
-                className="py-1.5 px-2 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/5 truncate transition-colors text-center"
-              >
-                ⚡ Super Admin
-              </button>
-            </div>
-          </div>
-
           {/* Switcher de Portal (Tenant vs Super Admin) */}
-          <div className="mt-5 text-center">
+          <div className="mt-5 pt-4 border-t border-white/5 text-center">
             {portalMode === 'super-admin' ? (
               <button
                 type="button"
@@ -768,67 +698,6 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
           </div>
         </div>
       </main>
-
-      {/* Modal Seletor de Barbearias (Multi-Tenant Switcher) */}
-      {isTenantPickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
-          <div className="w-full max-w-md rounded-3xl bg-[#141418] border border-white/10 shadow-2xl p-6 text-left">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <Storefront className="w-5 h-5 text-[#D4A373]" />
-                <h3 className="text-sm font-bold text-white">Selecionar Barbearia para Login</h3>
-              </div>
-              <button
-                onClick={() => setIsTenantPickerOpen(false)}
-                className="text-zinc-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-              {tenants.map((t) => {
-                const isCurrent = t.id === currentTenant.id;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => {
-                      onSelectTenant(t.id);
-                      setIsTenantPickerOpen(false);
-                    }}
-                    className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between transition-all ${
-                      isCurrent
-                        ? 'bg-[#D4A373]/15 border-[#D4A373] text-white'
-                        : 'bg-white/5 border-white/5 hover:border-white/20 text-zinc-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      {t.logoUrl ? (
-                        <img
-                          src={t.logoUrl}
-                          alt={t.name}
-                          className="w-9 h-9 rounded-xl object-cover border border-white/10"
-                        />
-                      ) : (
-                        <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-xs font-bold text-[#D4A373]">
-                          {t.name.slice(0, 2).toUpperCase()}
-                        </div>
-                      )}
-                      <div>
-                        <strong className="block text-xs font-bold text-white">{t.name}</strong>
-                        <span className="text-[10px] text-zinc-400 block">
-                          {t.cidade || 'São Paulo - SP'} • Dono: {t.ownerName || 'Felipe'}
-                        </span>
-                      </div>
-                    </div>
-                    {isCurrent && <CheckCircle className="w-4 h-4 text-[#D4A373]" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Discreet Footer */}
       <footer className="relative z-10 py-5 text-center text-zinc-500 text-[11px] border-t border-white/5 select-none">
