@@ -44,11 +44,11 @@ migrate(
         { name: 'ativo', type: 'bool', required: true },
         { name: 'link_mercado_pago', type: 'text', required: false },
       ],
-      listRule: '@request.auth.role = "superadmin" || barbearia_id = @request.auth.barbearia_id || (@request.auth.id = "" && ativo = true)',
-      viewRule: '@request.auth.role = "superadmin" || barbearia_id = @request.auth.barbearia_id || (@request.auth.id = "" && ativo = true)',
+      listRule: '@request.auth.role = "superadmin" || @request.auth.barbearia_id = barbearia_id || (@request.auth.id = "" && ativo = true)',
+      viewRule: '@request.auth.role = "superadmin" || @request.auth.barbearia_id = barbearia_id || (@request.auth.id = "" && ativo = true)',
       createRule: '@request.auth.role = "superadmin" || ((@request.auth.role = "owner" || @request.auth.role = "manager") && @request.body.barbearia_id = @request.auth.barbearia_id)',
-      updateRule: '@request.auth.role = "superadmin" || ((@request.auth.role = "owner" || @request.auth.role = "manager") && barbearia_id = @request.auth.barbearia_id)',
-      deleteRule: '@request.auth.role = "superadmin" || (barbearia_id = @request.auth.barbearia_id && @request.auth.role = "owner")',
+      updateRule: '@request.auth.role = "superadmin" || ((@request.auth.role = "owner" || @request.auth.role = "manager") && @request.auth.barbearia_id = barbearia_id)',
+      deleteRule: '@request.auth.role = "superadmin" || (@request.auth.barbearia_id = barbearia_id && @request.auth.role = "owner")',
     });
     app.save(planosAssinatura);
 
@@ -68,11 +68,11 @@ migrate(
         { name: 'cortes_utilizados_mes', type: 'number', required: false },
         { name: 'gateway_subscription_id', type: 'text', required: false },
       ],
-      listRule: '@request.auth.role = "superadmin" || barbearia_id = @request.auth.barbearia_id',
-      viewRule: '@request.auth.role = "superadmin" || barbearia_id = @request.auth.barbearia_id',
+      listRule: '@request.auth.role = "superadmin" || @request.auth.barbearia_id = barbearia_id',
+      viewRule: '@request.auth.role = "superadmin" || @request.auth.barbearia_id = barbearia_id',
       createRule: '@request.auth.role = "superadmin" || ((@request.auth.role = "owner" || @request.auth.role = "manager") && @request.body.barbearia_id = @request.auth.barbearia_id)',
-      updateRule: '@request.auth.role = "superadmin" || ((@request.auth.role = "owner" || @request.auth.role = "manager") && barbearia_id = @request.auth.barbearia_id)',
-      deleteRule: '@request.auth.role = "superadmin" || (barbearia_id = @request.auth.barbearia_id && @request.auth.role = "owner")',
+      updateRule: '@request.auth.role = "superadmin" || ((@request.auth.role = "owner" || @request.auth.role = "manager") && @request.auth.barbearia_id = barbearia_id)',
+      deleteRule: '@request.auth.role = "superadmin" || (@request.auth.barbearia_id = barbearia_id && @request.auth.role = "owner")',
     });
     app.save(assinaturasClientes);
   },

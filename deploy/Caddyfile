@@ -53,7 +53,7 @@
 
 naville.app, www.naville.app, api.naville.app, whatsapp.naville.app {
     tls {
-        protocols tls1.2 tls1.3
+        protocols tls1.3
     }
     import security_headers
 

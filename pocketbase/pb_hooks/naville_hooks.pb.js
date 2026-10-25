@@ -773,3 +773,28 @@ routerAdd("POST", "/api/webhooks/evolution", (e) => {
 
   return e.json(200, { received: true });
 });
+
+
+// 14. Proteção de Campos Críticos: Travar 'is_vitalicio' e 'plano_saas'
+// Apenas tokens com role 'superadmin' podem modificar esses campos
+onRecordUpdate((e) => {
+  try {
+    const authRecord = e.httpContext ? e.httpContext.get("authRecord") : null;
+    const isSuperAdmin = authRecord && authRecord.get("role") === "superadmin";
+
+    if (!isSuperAdmin) {
+      const original = e.record.original();
+      if (original) {
+        if (e.record.get("is_vitalicio") !== original.get("is_vitalicio")) {
+          e.record.set("is_vitalicio", original.get("is_vitalicio"));
+        }
+        if (e.record.get("plano_saas") !== original.get("plano_saas")) {
+          e.record.set("plano_saas", original.get("plano_saas"));
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Erro no hook de proteção de campos de barbearia:", err);
+  }
+  e.next();
+}, "barbearias");

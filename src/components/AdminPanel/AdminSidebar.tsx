@@ -19,6 +19,7 @@ import {
   Crown,
   SlidersHorizontal,
   ChatDots,
+  Storefront,
 } from '@phosphor-icons/react';
 import { TenantModulesConfig } from '../../types';
 import { WhatsAppIcon } from '../WhatsAppIcon';
@@ -28,7 +29,7 @@ const SidebarWhatsAppIcon: React.FC<{ className?: string; weight?: string }> = (
   return <WhatsAppIcon variant={isSelected ? 'monochrome' : 'official'} size={20} className={className} />;
 };
 
-export type AdminTab = 'list' | 'timeline' | 'barbers' | 'services' | 'whatsapp' | 'whatsapp-automations' | 'metrics' | 'expenses' | 'billing' | 'clients' | 'pdv' | 'club' | 'settings';
+export type AdminTab = 'list' | 'timeline' | 'barbers' | 'services' | 'whatsapp' | 'whatsapp-automations' | 'metrics' | 'expenses' | 'billing' | 'clients' | 'pdv' | 'club' | 'settings' | 'space';
 
 interface AdminSidebarProps {
   currentTab: AdminTab;
@@ -139,6 +140,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           icon: Scissors,
           badge: activeServicesCount > 0 ? String(activeServicesCount) : undefined,
           badgeColor: 'bg-white/10 text-zinc-300 border-white/10 font-bold',
+        },
+        {
+          id: 'space' as AdminTab,
+          label: 'Meu Espaço & Vitrine',
+          icon: Storefront,
+          badge: 'Vitrine',
+          badgeColor: 'bg-amber-500/15 text-[#D4AF37] border-amber-500/30 font-semibold',
         },
         {
           id: 'clients' as AdminTab,

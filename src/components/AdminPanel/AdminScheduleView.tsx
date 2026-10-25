@@ -60,6 +60,7 @@ import { CashRegisterPdvView } from './CashRegisterPdvView';
 import { ClientClubManagementView } from './ClientClubManagementView';
 import { ModuleUpgradeLockCard } from './ModuleUpgradeLockCard';
 import { SchedulingSettingsView } from './SchedulingSettingsView';
+import { EstablishmentSpaceProfileView } from './EstablishmentSpaceProfileView';
 import { AdminSidebar, AdminTab } from './AdminSidebar';
 
 interface AdminScheduleViewProps {
@@ -353,6 +354,7 @@ export const AdminScheduleView: React.FC<AdminScheduleViewProps> = ({
             {adminTab === 'expenses' && 'Controle de Gastos'}
             {adminTab === 'metrics' && 'Desempenho'}
             {adminTab === 'billing' && 'Minha Assinatura'}
+            {adminTab === 'space' && 'Meu Espaço & Vitrine'}
           </span>
         </div>
 
@@ -1162,6 +1164,15 @@ export const AdminScheduleView: React.FC<AdminScheduleViewProps> = ({
         <SchedulingSettingsView
           tenant={tenantConfig}
           onUpdateTenantConfig={onUpdateTenantConfig || (() => {})}
+        />
+      )}
+
+      {/* TAB 13: MEU ESPAÇO, FOTOS & VITRINE PÚBLICA */}
+      {adminTab === 'space' && (
+        <EstablishmentSpaceProfileView
+          tenant={tenantConfig}
+          onUpdateTenant={onUpdateTenantConfig || (() => {})}
+          onPreviewPublicBooking={onNavigateClient}
         />
       )}
       </div>

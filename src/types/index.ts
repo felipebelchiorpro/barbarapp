@@ -130,6 +130,28 @@ export interface TenantConfig {
   ciclo_pagamento?: SubscriptionBillingCycle;
   valor_mensalidade_acordado?: number;
   max_barbeiros_inclusos?: number;
+
+  // E. Personalização Visual & Vitrine Pública
+  logoUrl?: string;
+  capaPrincipalUrl?: string;
+  galeriaFotos?: string[];
+  descricao_espaco?: string;
+  googleMapsUrl?: string;
+  instagramUrl?: string;
+  horarios_funcionamento?: DayOperatingHours[];
+  plano_saas?: 'basico' | 'pro' | 'vitalicio';
+  is_public?: boolean;
+}
+
+export interface DayOperatingHours {
+  dayOfWeek: number; // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+  dayLabel: string;
+  isOpen: boolean;
+  openTime: string;
+  closeTime: string;
+  hasLunchBreak: boolean;
+  lunchStart: string;
+  lunchEnd: string;
 }
 
 export type BookingStatus = 'confirmed' | 'completed' | 'cancelled' | 'no_show';
