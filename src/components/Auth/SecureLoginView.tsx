@@ -7,6 +7,8 @@ import {
   EyeSlash,
   ArrowRight,
   Storefront,
+  Scissors,
+  Crown,
   WarningCircle,
   CheckCircle,
   ArrowClockwise,
@@ -51,8 +53,9 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
   onLoginSuccess,
   onBackToClient,
 }) => {
-  // Modo atual: 'tenant' (acesso unificado da barbearia) ou 'super-admin' (Naville Master corporativo)
+  // Modo atual: 'tenant' (acesso da barbearia) ou 'super-admin' (Naville Master corporativo)
   const [portalMode, setPortalMode] = useState<'tenant' | 'super-admin'>(initialPortal);
+  const [tenantRole, setTenantRole] = useState<'owner' | 'barber'>(initialRole || 'owner');
 
   // Tenant selecionado
   const currentTenant =
@@ -93,9 +96,17 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
     return () => clearInterval(timer);
   }, [lockout.isLocked, lockout.remainingSeconds]);
 
+  // Altera os valores ao alternar abas de perfil (Proprietário vs Barbeiro)
+  const handleSelectRole = (role: 'owner' | 'barber') => {
+    setTenantRole(role);
+    setErrorMessage('');
+    setSuccessNotice('');
+  };
+
   // Alterna de volta para o Portal da Barbearia
   const handleSwitchToTenant = () => {
     setPortalMode('tenant');
+    setTenantRole('owner');
     setErrorMessage('');
     setSuccessNotice('');
     setEmailOrPhone('');
@@ -163,7 +174,7 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
         const failStatus = recordLoginFailure(cleanInput, currentTenant.id, currentTenant.name);
         setLockout(failStatus);
         setErrorMessage(
-          res.error || 'Credenciais inválidas. Verifique os dados digitados.'
+          res.error || 'Credenciais inválidas. Verifique os dados digitados ou o perfil selecionado.'
         );
         setIsLoading(false);
         return;
@@ -171,11 +182,20 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
 
       const session = res.session!;
 
-      // Direcionamento automático e transparente:
-      // Dono ou Barbeiro com permissão de administrador concedida pelo dono -> vai para o painel administrativo
-      // Barbeiro padrão -> direcionado diretamente para o Modo Cadeira PWA
-      const targetView: 'admin' | 'barber' =
-        (session.user.role === 'owner' || session.user.canAccessAdmin) ? 'admin' : 'barber';
+      // Verificação de conformidade de perfil selecionado (Proprietário vs Barbeiro):
+      if (tenantRole === 'owner' && session.user.role !== 'owner' && session.user.role !== 'superadmin' && !session.user.canAccessAdmin) {
+        setErrorMessage('Esta conta pertence ao perfil Barbeiro. Alterne para a aba "Barbeiro" para acessar seu Modo Cadeira.');
+        setIsLoading(false);
+        return;
+      }
+
+      if (tenantRole === 'barber' && session.user.role !== 'barber') {
+        setErrorMessage('Esta credencial é de Proprietário. Alterne para a aba "Proprietário" para acessar o painel completo.');
+        setIsLoading(false);
+        return;
+      }
+
+      const targetView: 'admin' | 'barber' = tenantRole === 'owner' ? 'admin' : 'barber';
 
       recordLoginSuccess(cleanInput, session);
       onLoginSuccess(session, targetView);
@@ -334,7 +354,11 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
                     <Storefront className="w-8 h-8" />
                   </div>
                 )}
-
+                {portalMode === 'tenant' && (
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#D4A373] text-[#0F0F11] flex items-center justify-center text-xs font-bold shadow-md">
+                    {tenantRole === 'owner' ? <Crown className="w-3.5 h-3.5" /> : <Scissors className="w-3.5 h-3.5" />}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-center">
@@ -346,6 +370,33 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
                 Área de login segura da barbearia ({currentTenant.cidade || 'Unidade Principal'})
               </p>
 
+              {/* Seletor de Perfil da Barbearia: Dono vs Barbeiro */}
+              <div className="mt-4 grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-[#0F0F12] border border-white/5">
+                <button
+                  type="button"
+                  onClick={() => handleSelectRole('owner')}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    tenantRole === 'owner'
+                      ? 'bg-[#D4A373] text-[#0F0F11] shadow-md'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <Crown className="w-3.5 h-3.5" />
+                  <span>Proprietário</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectRole('barber')}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    tenantRole === 'barber'
+                      ? 'bg-[#D4A373] text-[#0F0F11] shadow-md'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <Scissors className="w-3.5 h-3.5" />
+                  <span>Barbeiro</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -373,7 +424,9 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
                   <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
                     {portalMode === 'super-admin'
                       ? 'E-mail do Administrador Master'
-                      : 'E-mail ou WhatsApp'}
+                      : tenantRole === 'owner'
+                      ? 'E-mail ou WhatsApp do Dono'
+                      : 'E-mail ou WhatsApp do Barbeiro'}
                   </label>
                   <div className="relative">
                     <input
@@ -384,7 +437,9 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
                       placeholder={
                         portalMode === 'super-admin'
                           ? 'superadmin@naville.app'
-                          : 'seu.email@exemplo.com'
+                          : tenantRole === 'owner'
+                          ? 'dono@navillebarber.com'
+                          : 'diego@navillebarber.com'
                       }
                       disabled={isLoading || lockout.isLocked}
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#0F0F12] border border-white/10 text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-[#D4A373] transition-colors disabled:opacity-50"
@@ -461,7 +516,9 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
                   <span>
                     {portalMode === 'super-admin'
                       ? 'Desbloquear Naville Master'
-                      : 'Acessar Sistema'}
+                      : tenantRole === 'owner'
+                      ? 'Acessar Painel do Dono'
+                      : 'Entrar no Modo Cadeira (PWA)'}
                   </span>
                   <ArrowRight className="w-4 h-4" />
                 </>
