@@ -150,16 +150,16 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
       // 2. Simula proteção Anti-Timing Attack
       await simulateTimingDefenseDelay();
 
-      // Se estiver no portal Super Admin
-      if (portalMode === 'super-admin') {
-        const isSuperAdminEmail =
-          cleanInput.toLowerCase() === 'superadmin@naville.app' ||
-          cleanInput.toLowerCase().startsWith('admin@');
+      // Se estiver no portal Super Admin ou se inseridas as credenciais corporativas Master da Naville
+      const isSuperAdminEmail =
+        cleanInput.toLowerCase() === 'superadmin@naville.app' ||
+        cleanInput.toLowerCase().startsWith('admin@naville.');
 
+      if (portalMode === 'super-admin' || isSuperAdminEmail) {
         if (!isSuperAdminEmail || password.length < 4) {
           const failStatus = recordLoginFailure(cleanInput, undefined, 'Naville Master Gate');
           setLockout(failStatus);
-          setErrorMessage('Credenciais Master não autorizadas para o Portal Super Admin.');
+          setErrorMessage('Credenciais corporativas Master não autorizadas.');
           setIsLoading(false);
           return;
         }
@@ -536,9 +536,9 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
             </button>
           </form>
 
-          {/* Switcher de Portal (Tenant vs Super Admin) */}
-          <div className="mt-5 pt-4 border-t border-white/5 text-center">
-            {portalMode === 'super-admin' ? (
+          {/* Switcher de Portal (Apenas visível se estiver explicitamente no portal super-admin para voltar) */}
+          {portalMode === 'super-admin' && (
+            <div className="mt-5 pt-4 border-t border-white/5 text-center">
               <button
                 type="button"
                 onClick={handleSwitchToTenant}
@@ -546,17 +546,8 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
               >
                 ← Voltar para o Login da Barbearia ({currentTenant.name})
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSwitchToSuperAdmin}
-                className="text-xs text-zinc-500 hover:text-zinc-300 flex items-center justify-center gap-1.5 mx-auto transition-colors"
-              >
-                <LockKey className="w-3.5 h-3.5" />
-                <span>Portal Master Super Admin (Naville)</span>
-              </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </main>
 
