@@ -92,11 +92,16 @@ export const EstablishmentFormModal: React.FC<EstablishmentFormModalProps> = ({
   // ==========================================
   // Seção 4: Parametrização do Plano & Contrato
   // ==========================================
-  const [plan, setPlan] = useState<'starter' | 'pro' | 'enterprise'>('pro');
+  const [plan, setPlan] = useState<'starter' | 'pro' | 'enterprise' | 'partner'>('pro');
   const [cicloPagamento, setCicloPagamento] = useState<SubscriptionBillingCycle>('mensal');
   const [valorMensalidade, setValorMensalidade] = useState<number>(89.9);
   const [maxBarbeiros, setMaxBarbeiros] = useState<number>(3);
-  const [status, setStatus] = useState<'active' | 'trial'>('active');
+  const [status, setStatus] = useState<'active' | 'trial' | 'partner'>('active');
+  const [modClube, setModClube] = useState<boolean>(true);
+  const [modWhatsapp, setModWhatsapp] = useState<boolean>(true);
+  const [modExpenses, setModExpenses] = useState<boolean>(true);
+  const [modPdv, setModPdv] = useState<boolean>(true);
+  const [modClients, setModClients] = useState<boolean>(true);
 
   // Carrega dados iniciais ao abrir ou mudar estabelecimento
   useEffect(() => {
@@ -132,6 +137,11 @@ export const EstablishmentFormModal: React.FC<EstablishmentFormModalProps> = ({
       );
       setMaxBarbeiros(tenantToEdit.max_barbeiros_inclusos ?? tenantToEdit.max_barbeiros ?? 3);
       setStatus(tenantToEdit.status === 'blocked' ? 'active' : tenantToEdit.status || 'active');
+      setModClube(tenantToEdit.recurso_clube_ativo ?? tenantToEdit.enabledModules?.clube_assinaturas ?? true);
+      setModWhatsapp(tenantToEdit.whatsapp_ativo ?? tenantToEdit.enabledModules?.whatsapp_auto ?? true);
+      setModExpenses(tenantToEdit.recurso_financeiro_avancado ?? tenantToEdit.enabledModules?.expenses ?? true);
+      setModPdv(tenantToEdit.enabledModules?.pdv ?? true);
+      setModClients(tenantToEdit.enabledModules?.clients ?? true);
     } else {
       // Reset para novo cadastro
       setNomeFantasia('');
@@ -161,6 +171,11 @@ export const EstablishmentFormModal: React.FC<EstablishmentFormModalProps> = ({
       setValorMensalidade(89.9);
       setMaxBarbeiros(3);
       setStatus('active');
+      setModClube(true);
+      setModWhatsapp(true);
+      setModExpenses(true);
+      setModPdv(true);
+      setModClients(true);
     }
     setCepFeedback(null);
     setActiveTab('identificacao');
@@ -254,12 +269,13 @@ export const EstablishmentFormModal: React.FC<EstablishmentFormModalProps> = ({
       ownerName: (nomeResponsavel.trim() || tenantToEdit?.ownerName || 'Responsável').trim(),
       ownerPhone: (cleanDigits(whatsappFinanceiro) || tenantToEdit?.ownerPhone || '11999999999').trim(),
       plan,
-      planBasePrice: valorMensalidade || 49.9,
+      planBasePrice: plan === 'partner' ? 0 : (valorMensalidade || 49.9),
       max_barbeiros: maxBarbeiros,
       valor_adicional_barbeiro: tenantToEdit?.valor_adicional_barbeiro || 25.0,
-      status: tenantToEdit?.status || status,
+      status: plan === 'partner' ? 'partner' : (tenantToEdit?.status || status),
+      is_vitalicio: plan === 'partner' || status === 'partner',
       whatsappStatus: tenantToEdit?.whatsappStatus || 'close',
-      instanceName: effectiveSlug.replace(/-/g, '_'),
+      instanceName: `naville_${effectiveSlug.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`,
       createdAt: tenantToEdit?.createdAt || new Date().toISOString(),
       cidade: cidade.trim() ? `${cidade.trim()} - ${estadoUf}` : tenantToEdit?.cidade,
 
@@ -289,8 +305,19 @@ export const EstablishmentFormModal: React.FC<EstablishmentFormModalProps> = ({
       // Contrato & SaaS
       plano_contratado: plan,
       ciclo_pagamento: cicloPagamento,
-      valor_mensalidade_acordado: valorMensalidade,
+      valor_mensalidade_acordado: plan === 'partner' ? 0 : valorMensalidade,
       max_barbeiros_inclusos: maxBarbeiros,
+      limite_profissionais: maxBarbeiros,
+      recurso_clube_ativo: modClube,
+      recurso_financeiro_avancado: modExpenses,
+      whatsapp_ativo: modWhatsapp,
+      enabledModules: {
+        expenses: modExpenses,
+        clients: modClients,
+        pdv: modPdv,
+        whatsapp_auto: modWhatsapp,
+        clube_assinaturas: modClube,
+      },
     };
 
     onSave(savedTenant);
@@ -417,7 +444,7 @@ export const EstablishmentFormModal: React.FC<EstablishmentFormModalProps> = ({
 
                 <div>
                   <label className="text-xs font-semibold text-zinc-300 block mb-1.5">
-                    Slug da URL <span className="text-zinc-500 font-normal">(Opcional)</span>
+                    Slug da URL <span className="text-zinc-500 font-normal">(Automático)</span>
                   </label>
                   <input
                     type="text"
@@ -428,6 +455,30 @@ export const EstablishmentFormModal: React.FC<EstablishmentFormModalProps> = ({
                   />
                 </div>
               </div>
+
+              {/* Preview dos 3 Links Oficiais Gerados pelo Slug */}
+              {slug.trim() && (
+                <div className="p-3.5 rounded-xl bg-zinc-900/90 border border-[#D4AF37]/30 space-y-2 text-xs">
+                  <div className="font-bold text-[#D4AF37] flex items-center justify-between">
+                    <span>🔗 Links Personalizados Gerados Automaticamente:</span>
+                    <span className="text-[10px] font-mono text-zinc-400">Login Dono: dono@{slug.trim()}.com</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono text-[11px]">
+                    <div className="p-2 rounded-lg bg-black/50 border border-white/5 text-zinc-300 truncate">
+                      <span className="text-zinc-500 block text-[10px] font-sans">1. Agendamento Cliente:</span>
+                      /b/{slug.trim()}
+                    </div>
+                    <div className="p-2 rounded-lg bg-black/50 border border-white/5 text-amber-300 truncate">
+                      <span className="text-zinc-500 block text-[10px] font-sans">2. Painel do Dono:</span>
+                      /b/{slug.trim()}/admin
+                    </div>
+                    <div className="p-2 rounded-lg bg-black/50 border border-white/5 text-sky-300 truncate">
+                      <span className="text-zinc-500 block text-[10px] font-sans">3. App do Barbeiro:</span>
+                      /b/{slug.trim()}/barbeiro
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Razão Social */}
               <div>
@@ -783,11 +834,12 @@ export const EstablishmentFormModal: React.FC<EstablishmentFormModalProps> = ({
                 <label className="text-xs font-semibold text-zinc-300 block mb-2">
                   Plano Contratado do SaaS
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
                   {[
                     { id: 'starter', name: 'Starter', price: 49.9, desc: 'Solo ou iniciante (1 cadeira)' },
                     { id: 'pro', name: 'Executive Pro', price: 89.9, desc: 'Recomendado (até 3 cadeiras)' },
                     { id: 'enterprise', name: 'Black Master', price: 149.9, desc: 'Redes e grandes equipes' },
+                    { id: 'partner', name: 'Parceiro VIP', price: 0.0, desc: 'Fidelidade / Isento de Cobrança (R$ 0)' },
                   ].map((p) => (
                     <button
                       key={p.id}

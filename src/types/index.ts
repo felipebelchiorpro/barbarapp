@@ -1,5 +1,6 @@
 export interface ServiceCategoryConfig {
   id: string;
+  tenantId?: string;
   name: string;
   description?: string;
   icon?: string;
@@ -9,6 +10,7 @@ export interface ServiceCategoryConfig {
 
 export interface Service {
   id: string;
+  tenantId?: string;
   name: string;
   category: string; // 'cabelo' | 'barba' | 'combos' | 'tratamento' | 'club' | string
   durationMinutes: number;
@@ -23,6 +25,7 @@ export type BarberAttendanceType = 'agenda' | 'ordem_chegada' | 'ambos';
 
 export interface Barber {
   id: string;
+  tenantId?: string;
   name: string;
   nickname: string;
   role: string;
@@ -39,7 +42,7 @@ export interface Barber {
   loginEmail?: string;                         // E-mail opcional para login do profissional
 }
 
-export type TenantStatus = 'active' | 'blocked' | 'trial';
+export type TenantStatus = 'active' | 'blocked' | 'trial' | 'partner';
 
 export interface TenantModulesConfig {
   expenses?: boolean;          // Controle de Gastos & DRE
@@ -58,11 +61,12 @@ export type PlanoContratado = 'starter' | 'pro' | 'enterprise' | 'Pro' | 'Execut
 
 export interface TenantConfig {
   id: string;
+  tenantId?: string;
   name: string; // Nome Fantasia
   slug: string;
   ownerName: string;
   ownerPhone: string;
-  plan: 'starter' | 'pro' | 'enterprise';
+  plan: 'starter' | 'pro' | 'enterprise' | 'partner';
   planBasePrice?: number;
   customDiscount?: number;    // Desconto fixo especial de parceiro (R$)
   partnerNote?: string;       // Motivo do desconto / acordo (ex: Parceiro Instagram)
@@ -171,6 +175,7 @@ export type BookingStatus = 'confirmed' | 'completed' | 'cancelled' | 'no_show';
 
 export interface Booking {
   id: string;
+  tenantId?: string;
   customerId?: string;
   customerName: string;
   customerPhone: string;
@@ -193,6 +198,7 @@ export interface Booking {
 
 export interface TimeBlock {
   id: string;
+  tenantId?: string;
   barberId: string; // 'all' or specific barber id
   date: string; // YYYY-MM-DD
   startTime: string; // HH:mm
@@ -245,6 +251,7 @@ export interface ContiguousSlotsResult {
 
 export interface WebhookLog {
   id: string;
+  tenantId?: string;
   timestamp: string;
   eventType: 'booking.created' | 'booking.reminder' | 'booking.status_changed' | 'test.ping';
   bookingId?: string;
@@ -266,7 +273,7 @@ export interface EvolutionApiConfig {
   reminderHoursBefore: number;
 }
 
-export type WhatsAppTemplateEventType = 'confirmacao_agendamento' | 'lembrete_2h' | 'reativacao_cliente';
+export type WhatsAppTemplateEventType = 'confirmacao_agendamento' | 'lembrete_2h' | 'pos_corte' | 'reativacao_cliente';
 
 export interface WhatsAppMessageTemplate {
   id?: string;
@@ -282,13 +289,14 @@ export interface WhatsAppMessageTemplate {
 
 export interface WhatsAppDispatchAuditLog {
   id: string;
+  tenantId?: string;
   barbearia_id: string;
   agendamento_id?: string;
   cliente_nome: string;
   cliente_telefone: string;
   tipo_evento: WhatsAppTemplateEventType | 'teste';
   mensagem: string;
-  status: 'enviado' | 'falha' | 'simulando_digitando';
+  status: 'enviado' | 'falha' | 'simulando_digitando' | 'agendado';
   delay_aplicado: number;
   simulou_digitando: boolean;
   evolution_response?: unknown;
@@ -332,8 +340,24 @@ export interface Invoice {
   issueDate: string;
   dueDate: string;
   paidAt?: string | null;
-  items: InvoiceItem[];
-  paymentMethod?: 'pix' | 'credit_card' | 'bank_slip';
+  items?: InvoiceItem[];
+  description?: string;
+  lineItems?: Array<{
+    id: string;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    total: number;
+  }>;
+  billingHistory?: Array<{
+    id: string;
+    timestamp: string;
+    status: string;
+    note?: string;
+    message?: string;
+  }>;
+  paymentMethod?: 'pix' | 'credit_card' | 'bank_slip' | 'stripe';
+  stripePaymentId?: string;
   paymentLink?: string;
   pixQrCode?: string;
   pixCopyPaste?: string;
@@ -351,6 +375,7 @@ export interface Invoice {
 
 export interface HistoricoFatura {
   id: string;
+  tenantId?: string;
   barbearia_id: string;
   fatura_id: string;
   fatura_numero: string;
@@ -385,7 +410,7 @@ export type InvoiceNinjaWebhookEvent =
 
 export interface InvoiceNinjaWebhookLog {
   id: string;
-  timestamp: string;
+    timestamp: string;
   eventType: InvoiceNinjaWebhookEvent;
   tenantId: string;
   tenantName: string;
@@ -417,7 +442,7 @@ export type ExpensePaymentMethod = 'pix' | 'boleto' | 'credit_card' | 'cash';
 
 export interface Expense {
   id: string;
-  tenantId: string;
+    tenantId: string;
   description: string;
   category: ExpenseCategory;
   amount: number;
@@ -436,7 +461,7 @@ export interface Expense {
 // ==========================================
 export interface CustomerProfile {
   id: string;
-  tenantId: string;
+    tenantId: string;
   name: string;
   phone: string;
   avatarUrl?: string;
@@ -472,6 +497,7 @@ export type AssinaturaStatus = 'ativo' | 'vencido' | 'cancelado';
 
 export interface PlanoAssinatura {
   id: string;
+  tenantId?: string;
   barbearia_id: string;            // Relation -> barbearias
   nome: string;                    // Nome do plano (ex: "Clube do Corte Bronze")
   valor_mensal: number;            // Valor mensal em R$
@@ -490,6 +516,7 @@ export interface PlanoAssinatura {
 
 export interface AssinaturaCliente {
   id: string;
+  tenantId?: string;
   barbearia_id: string;            // Relation -> barbearias
   cliente_id: string;              // Relation -> clientes
   plano_id: string;                // Relation -> planos_assinatura
@@ -523,7 +550,7 @@ export interface ClientSubscriptionPlan extends PlanoAssinatura {
 // ==========================================
 export interface Product {
   id: string;
-  tenantId: string;
+    tenantId: string;
   name: string;
   category: string; // 'pomadas' | 'barba' | 'bebidas' | 'cuidados' | 'insumos' | string
   price: number;
@@ -538,12 +565,14 @@ export interface Product {
 
 export interface ComandaServiceItem {
   id: string;
+  tenantId?: string;
   name: string;
   price: number;
 }
 
 export interface ComandaProductItem {
   id: string;
+  tenantId?: string;
   name: string;
   quantity: number;
   unitPrice: number;
@@ -578,7 +607,7 @@ export type CashTransactionCategory =
 
 export interface CashTransaction {
   id: string;
-  tenantId: string;
+    tenantId: string;
   description: string;
   type: CashTransactionType;
   amount: number;
@@ -599,7 +628,32 @@ export interface CashTransaction {
   produtos?: ComandaProductItem[];
   valor_total?: number;
   forma_pagamento?: CashPaymentMethod;
+  valor_recebido?: number;
+  troco?: number;
   data_hora?: string;
+}
+
+export type CashRegisterStatus = 'aberto' | 'fechado';
+
+export interface CashRegisterSession {
+  id: string;
+    tenantId: string;
+  status: CashRegisterStatus;
+  abertoPor: string;
+  abertoEm: string;
+  fundoInicial: number;
+  fechadoPor?: string;
+  fechadoEm?: string;
+  saldoEsperadoDinheiro?: number;
+  saldoContadoDinheiro?: number;
+  diferenca?: number;
+  totalVendas?: number;
+  totalDinheiro?: number;
+  totalPix?: number;
+  totalCartao?: number;
+  totalSangrias?: number;
+  totalSuprimentos?: number;
+  observacoes?: string;
 }
 
 // ==========================================
@@ -649,14 +703,14 @@ export interface TenantHealthRecord {
   ownerName: string;
   ownerPhone: string;
   city: string;
-  plan: 'starter' | 'pro' | 'enterprise';
+  plan: 'starter' | 'pro' | 'enterprise' | 'partner';
   cycle: 'mensal' | 'semestral' | 'anual';
   barbersCount: number;
   maxBarbers: number;
   gmvMonthly: number;
   mrrContribution: number;
   billingStatus: 'ativo' | 'em_atraso' | 'cancelado' | 'periodo_teste';
-  status: 'active' | 'blocked' | 'trial';
+  status: TenantStatus;
   evolutionMessagesCount: number;
   healthScore: 'excellent' | 'good' | 'warning' | 'danger';
   daysOverdue?: number;
@@ -686,6 +740,7 @@ export interface CrmWebhookConfig {
 
 export interface CrmWebhookLog {
   id: string;
+  tenantId?: string;
   event: CrmWebhookEventType;
   url: string;
   timestamp: string;
@@ -734,6 +789,7 @@ export interface SystemErrorTechnicalDetails {
 
 export interface SystemErrorLog {
   id: string;
+  tenantId?: string;
   barbearia_id: string | null;
   barbearia_nome?: string;
   nivel: SystemErrorLevel;
@@ -755,6 +811,7 @@ export type UserRole = 'superadmin' | 'owner' | 'manager' | 'barber' | 'client';
 
 export interface AuthUser {
   id: string;
+  tenantId?: string;
   email: string;
   name: string;
   role: UserRole;
@@ -791,6 +848,7 @@ export interface PocketBaseCollectionRuleDefinition {
 // ==========================================
 export interface BarberExtraItem {
   id: string;
+  tenantId?: string;
   name: string;
   type: 'service' | 'product';
   price: number;
@@ -801,6 +859,7 @@ export interface BarberExtraItem {
 
 export interface ChairOrderItem {
   id: string;
+  tenantId?: string;
   name: string;
   type: 'service' | 'product';
   price: number;

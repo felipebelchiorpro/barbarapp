@@ -15,6 +15,7 @@ import { WebhookMonitorModal } from './components/AdminPanel/WebhookMonitorModal
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { QRCodeModal } from './components/QRCodeModal';
 import { SuperAdminDashboard } from './components/SuperAdmin/SuperAdminDashboard';
+import { SERVER_INITIAL_TENANTS } from './server/mockServerData';
 import { TenantBlockedCustomerView } from './components/SuperAdmin/TenantBlockedCustomerView';
 import { GlobalErrorBoundary } from './components/GlobalErrorBoundary';
 import { UserFriendlyToast } from './components/UserFriendlyToast';
@@ -23,10 +24,17 @@ import { BarberPwaView } from './components/BarberPwa/BarberPwaView';
 import { BarberLoginModal } from './components/BarberPwa/BarberLoginModal';
 import { SecureLoginView } from './components/Auth/SecureLoginView';
 import { createEvolutionInstance } from './services/evolutionApi';
+import { generatePixCopyPaste } from './services/invoiceNinjaService';
 import { getActiveSession, clearAuthSession, MOCK_USERS } from './services/authService';
 import { AuthSession } from './types';
 import { NavilleLuxuryClientView } from './components/LuxurySuite/NavilleLuxuryClientView';
-import { Crown, Scissors } from 'lucide-react';
+import { NavilleSaasLandingPage } from './components/Landing/NavilleSaasLandingPage';
+import { Crown, Scissors, CheckCircle, Sparkles } from 'lucide-react';
+import { fetchTimeBlocks, createTimeBlock, deleteTimeBlock } from './services/blockService';
+import {
+  schedulePostCutWhatsAppMessage,
+  sendBookingConfirmationWhatsApp,
+} from './services/whatsappAutomationService';
 
 import {
   INITIAL_SERVICES,
@@ -87,24 +95,68 @@ import {
 export function extractSlugFromUrl(): string | null {
   if (typeof window === 'undefined') return null;
   const path = window.location.pathname;
-  const match = path.match(/^\/b\/([a-zA-Z0-9_-]+)/i);
+  // Suporta tanto /b/:slug quanto /db/:slug (e sub-rotas /b/:slug/admin, /b/:slug/barbeiro, /b/:slug/login)
+  const match = path.match(/^\/(?:b|db)\/([a-zA-Z0-9_-]+)/i);
   if (match && match[1]) {
     return match[1].toLowerCase();
   }
   const params = new URLSearchParams(window.location.search);
-  const paramSlug = params.get('b') || params.get('slug') || params.get('tenant');
+  const paramSlug = params.get('b') || params.get('db') || params.get('slug') || params.get('tenant');
   if (paramSlug) return paramSlug.toLowerCase();
   return null;
 }
 
-function checkUrlView(): 'client' | 'admin' | 'super-admin' | 'barber' | 'login' {
-  if (typeof window === 'undefined') return 'client';
+export type AppViewMode = 'landing' | 'client' | 'admin' | 'super-admin' | 'barber' | 'login';
+
+function checkUrlView(): AppViewMode {
+  if (typeof window === 'undefined') return 'landing';
   const path = window.location.pathname.toLowerCase();
   const hash = window.location.hash.toLowerCase();
   const search = window.location.search.toLowerCase();
 
-  // Rota pública por slug /b/:slug sempre abre a tela do cliente
-  if (path.startsWith('/b/')) {
+  // Super Admin tem prioridade máxima
+  if (
+    path.includes('/super-admin') ||
+    path.includes('/superadmin') ||
+    hash.includes('super-admin') ||
+    hash.includes('superadmin') ||
+    search.includes('superadmin') ||
+    search.includes('super-admin')
+  ) {
+    return 'super-admin';
+  }
+
+  // Rotas com slug (/b/:slug ou /db/:slug) e suas sub-rotas de Dono, Barbeiro e Cliente
+  const slugMatch = path.match(/^\/(?:b|db)\/([a-zA-Z0-9_-]+)(?:\/(.*))?$/i);
+  if (slugMatch) {
+    const subRoute = (slugMatch[2] || '').toLowerCase();
+    if (
+      subRoute.startsWith('admin') ||
+      subRoute.startsWith('painel') ||
+      subRoute.startsWith('dono') ||
+      hash.includes('admin') ||
+      hash.includes('painel')
+    ) {
+      return 'admin';
+    }
+    if (
+      subRoute.startsWith('barbeiro') ||
+      subRoute.startsWith('barber') ||
+      subRoute.startsWith('cadeira') ||
+      subRoute.startsWith('pwa') ||
+      hash.includes('barbeiro') ||
+      hash.includes('cadeira')
+    ) {
+      return 'barber';
+    }
+    if (
+      subRoute.startsWith('login') ||
+      subRoute.startsWith('entrar') ||
+      subRoute.startsWith('acesso') ||
+      hash.includes('login')
+    ) {
+      return 'login';
+    }
     return 'client';
   }
 
@@ -123,16 +175,6 @@ function checkUrlView(): 'client' | 'admin' | 'super-admin' | 'barber' | 'login'
     return 'login';
   }
 
-  if (
-    path.includes('/super-admin') ||
-    path.includes('/superadmin') ||
-    hash.includes('super-admin') ||
-    hash.includes('superadmin') ||
-    search.includes('superadmin') ||
-    search.includes('super-admin')
-  ) {
-    return 'super-admin';
-  }
   if (
     path.includes('/barbeiro') ||
     path.includes('/barber') ||
@@ -158,12 +200,20 @@ function checkUrlView(): 'client' | 'admin' | 'super-admin' | 'barber' | 'login'
   ) {
     return 'admin';
   }
-  return 'client';
+
+  // Se houver query param de barbearia (?b=slug ou ?slug=slug), abre visão do cliente
+  const urlSlug = extractSlugFromUrl();
+  if (urlSlug) {
+    return 'client';
+  }
+
+  // Domínio raiz principal (https://navillebarber.pro/) -> Landing Page Oficial de Venda SaaS
+  return 'landing';
 }
 
 export default function App() {
-  // Navigation View (auto-detects /super-admin, /admin, /barbeiro, /login, or client)
-  const [currentView, setCurrentView] = useState<'client' | 'admin' | 'super-admin' | 'barber' | 'login'>(() => {
+  // Navigation View (auto-detects /, /b/:slug, /super-admin, /admin, /barbeiro, /login)
+  const [currentView, setCurrentView] = useState<AppViewMode>(() => {
     return checkUrlView();
   });
 
@@ -183,30 +233,38 @@ export default function App() {
     }
   };
 
-  // Multi-Tenant State (Gerenciado pelo Super Admin e persistido no LocalStorage / PocketBase)
+  // Multi-Tenant State (Gerenciado pelo Super Admin e sincronizado com PocketBase Cloud State)
   const [tenants, setTenants] = useState<TenantConfig[]>(() => {
-    const saved = localStorage.getItem('barbearia_ls_tenants_v1');
+    const saved = localStorage.getItem('naville_tenants_v2_prod');
     return saved ? JSON.parse(saved) : INITIAL_TENANTS;
   });
 
   const [activeTenantId, setActiveTenantId] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const urlSlug = extractSlugFromUrl();
+      const savedRaw = localStorage.getItem('naville_tenants_v2_prod');
+      const currentList: TenantConfig[] = savedRaw ? JSON.parse(savedRaw) : INITIAL_TENANTS;
       if (urlSlug) {
-        const found = INITIAL_TENANTS.find((t) => t.slug === urlSlug || t.id === urlSlug);
+        const found = currentList.find((t) => t.slug === urlSlug || t.id === urlSlug);
         if (found) return found.id;
       }
+      if (currentList[0]) return currentList[0].id;
     }
-    return INITIAL_TENANTS[0]?.id || 'tenant-barbearia-ls';
+    return DEFAULT_TENANT_CONFIG.id;
   });
 
   // Save tenants
   useEffect(() => {
-    localStorage.setItem('barbearia_ls_tenants_v1', JSON.stringify(tenants));
+    localStorage.setItem('naville_tenants_v2_prod', JSON.stringify(tenants));
   }, [tenants]);
 
-  // Active tenant derived
+  // Active tenant derived (also matches URL slug if activeTenantId wasn't updated yet)
   const activeTenant = useMemo(() => {
+    const urlSlug = extractSlugFromUrl();
+    if (urlSlug) {
+      const bySlug = tenants.find((t) => t.slug === urlSlug || t.id === urlSlug);
+      if (bySlug) return bySlug;
+    }
     return tenants.find((t) => t.id === activeTenantId) || tenants[0] || DEFAULT_TENANT_CONFIG;
   }, [tenants, activeTenantId]);
 
@@ -223,6 +281,7 @@ export default function App() {
         }
       }
     };
+    handleUrlChange();
     window.addEventListener('popstate', handleUrlChange);
     window.addEventListener('hashchange', handleUrlChange);
     return () => {
@@ -231,20 +290,36 @@ export default function App() {
     };
   }, [tenants]);
 
-  const handleNavigate = (view: 'client' | 'admin' | 'super-admin' | 'barber' | 'login', slug?: string) => {
+  const handleNavigate = (view: AppViewMode, slug?: string) => {
+    if (slug) {
+      const found = tenants.find((t) => t.slug === slug || t.id === slug);
+      if (found) {
+        setActiveTenantId(found.id);
+      }
+    }
     setCurrentView(view);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    const currentSlug = slug || activeTenant.slug || 'barbearia-ls';
+    const currentSlug = slug || extractSlugFromUrl() || activeTenant?.slug || '';
     const targetPath =
-      view === 'super-admin'
+      view === 'landing'
+        ? '/'
+        : view === 'super-admin'
         ? '/super-admin'
         : view === 'admin'
-        ? '/painel'
+        ? currentSlug
+          ? `/b/${currentSlug}/admin`
+          : '/painel'
         : view === 'barber'
-        ? '/barbeiro'
+        ? currentSlug
+          ? `/b/${currentSlug}/barbeiro`
+          : '/barbeiro'
         : view === 'login'
-        ? '/login'
-        : `/b/${currentSlug}`;
+        ? currentSlug
+          ? `/b/${currentSlug}/login`
+          : '/login'
+        : currentSlug
+        ? `/b/${currentSlug}`
+        : '/';
     if (window.location.pathname !== targetPath) {
       window.history.pushState({ view, slug: currentSlug }, '', targetPath);
     }
@@ -258,6 +333,12 @@ export default function App() {
     return getActiveSession(tenants).session;
   });
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [paymentSuccessModal, setPaymentSuccessModal] = useState<{
+    isOpen: boolean;
+    nextDate: string;
+    invoiceNumber: string;
+    tenantName: string;
+  } | null>(null);
 
   // Auto-enforce Kill Switch: if tenant gets blocked, session is immediately re-checked
   useEffect(() => {
@@ -329,19 +410,104 @@ export default function App() {
     }
   };
 
+  // Geração de Fatura Central pelo Super Admin para aparecer no Painel da Barbearia
+  const handleGenerateInvoice = (
+    targetTenant: TenantConfig,
+    amount: number,
+    dueDate: string,
+    description: string
+  ) => {
+    const invId = `inv-${Date.now()}`;
+    const invoiceNumber = `FAT-${Math.floor(1000 + Math.random() * 9000)}`;
+    const pixPayload = generatePixCopyPaste({ id: invId, invoiceNumber, amount, tenantId: targetTenant.id, tenantName: targetTenant.name, status: 'pending', issueDate: new Date().toISOString(), dueDate: new Date(dueDate).toISOString() });
+
+    const newInvoice: Invoice = {
+      id: invId,
+      invoiceNumber,
+      tenantId: targetTenant.id,
+      tenantName: targetTenant.name,
+      amount,
+      status: 'pending',
+      issueDate: new Date().toISOString(),
+      dueDate: new Date(dueDate).toISOString(),
+      pixCopyPaste: pixPayload,
+      description: description || `Assinatura Mensal SaaS Naville Barber - Plano ${targetTenant.plan.toUpperCase()}`,
+      lineItems: [
+        {
+          id: `li-${Date.now()}`,
+          description: description || `Assinatura Mensal SaaS Naville Barber - Plano ${targetTenant.plan.toUpperCase()}`,
+          quantity: 1,
+          unitPrice: amount,
+          total: amount,
+        },
+      ],
+      billingHistory: [
+        {
+          id: `hist-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          status: 'pending',
+          message: 'Fatura emitida pela governança central Super Admin.',
+        },
+      ],
+    };
+
+    setInvoices((prev) => [newInvoice, ...prev]);
+
+    // Atualiza próximo vencimento e vínculo da fatura no cadastro da barbearia
+    const updatedTenant: TenantConfig = {
+      ...targetTenant,
+      currentInvoiceId: invId,
+      nextBillingDate: new Date(dueDate).toISOString(),
+      status_assinatura: 'ativo',
+    };
+    handleUpdateTenant(updatedTenant);
+  };
+
   const handleAddTenant = (newTenant: TenantConfig) => {
-    setTenants((prev) => [newTenant, ...prev]);
-    syncTenantToPocketBase(newTenant);
+    const rawInstance = newTenant.instanceName || `barbearia_${newTenant.slug || newTenant.id}`;
+    const cleanInstance = rawInstance.startsWith('naville_')
+      ? rawInstance
+      : `naville_${rawInstance.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+
+    const cleanTenant: TenantConfig = {
+      ...newTenant,
+      instanceName: cleanInstance,
+      whatsappStatus: 'close',
+      is_vitalicio: newTenant.plan === 'partner' || newTenant.status === 'partner' || newTenant.is_vitalicio,
+    };
+
+    setTenants((prev) => [cleanTenant, ...prev]);
+    setActiveTenantId(cleanTenant.id);
+    syncTenantToPocketBase(cleanTenant);
+
+    // Inicializa WhatsApp isolado e limpo (sem número de outra barbearia)
+    setEvolutionConfigsByTenant((prev) => {
+      const updated = {
+        ...prev,
+        [cleanTenant.id]: {
+          baseUrl: '',
+          apiKey: '4f89d3a1b72e5c9f0861ab4e3c7d92f15082e6da19743c5b8df2194a860eb3c1',
+          instanceName: cleanInstance,
+          autoSendEnabled: true,
+          reminderHoursBefore: 2,
+          connectionStatus: 'close' as const,
+          qrcode: undefined,
+          number: undefined,
+          profileName: undefined,
+        },
+      };
+      localStorage.setItem('naville_evolution_configs_by_tenant_v2', JSON.stringify(updated));
+      return updated;
+    });
+
     dispatchCrmWebhook(
       'saas.lead.cadastro_iniciado',
-      buildCrmEventPayload('saas.lead.cadastro_iniciado', { tenant: newTenant }),
+      buildCrmEventPayload('saas.lead.cadastro_iniciado', { tenant: cleanTenant }),
       crmConfig
     );
-    // Auto-cria instância na Evolution API assim que a barbearia é cadastrada
-    const rawInstance = newTenant.instanceName || `barbearia_${newTenant.slug || newTenant.id}`;
-    const cleanInstance = rawInstance.startsWith('naville_barbearia_') ? rawInstance : `naville_barbearia_${rawInstance}`;
+
     createEvolutionInstance({
-      baseUrl: 'http://evolution-api:8080',
+      baseUrl: '',
       apiKey: '4f89d3a1b72e5c9f0861ab4e3c7d92f15082e6da19743c5b8df2194a860eb3c1',
       instanceName: cleanInstance,
       autoSendEnabled: true,
@@ -355,23 +521,132 @@ export default function App() {
 
   // Invoice Ninja & Billing State (Módulo 3)
   const [invoices, setInvoices] = useState<Invoice[]>(() => {
-    const saved = localStorage.getItem('barbearia_ls_invoices_v1');
-    return saved ? JSON.parse(saved) : INITIAL_INVOICES;
+    const saved = localStorage.getItem('naville_invoices_v2_prod');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return INITIAL_INVOICES;
+      }
+    }
+    return INITIAL_INVOICES;
   });
 
   const [ninjaConfig, setNinjaConfig] = useState<InvoiceNinjaConfig>(() => {
-    const saved = localStorage.getItem('barbearia_ls_ninja_config_v1');
+    const saved = localStorage.getItem('naville_ninja_config_v2_prod');
     return saved ? JSON.parse(saved) : DEFAULT_INVOICE_NINJA_CONFIG;
   });
 
   const [ninjaWebhookLogs, setNinjaWebhookLogs] = useState<InvoiceNinjaWebhookLog[]>(() => {
-    const saved = localStorage.getItem('barbearia_ls_ninja_logs_v1');
+    const saved = localStorage.getItem('naville_ninja_logs_v2_prod');
     return saved ? JSON.parse(saved) : INITIAL_NINJA_WEBHOOK_LOGS;
   });
 
   useEffect(() => {
-    localStorage.setItem('barbearia_ls_invoices_v1', JSON.stringify(invoices));
+    localStorage.setItem('naville_invoices_v2_prod', JSON.stringify(invoices));
   }, [invoices]);
+
+  // Escuta retorno automático de pagamento da Stripe (?stripe_payment=success ou ?session_id=...)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const stripePayment = urlParams.get('stripe_payment');
+    const sessionId = urlParams.get('session_id') || urlParams.get('stripe_session_id');
+
+    if (stripePayment === 'success' || sessionId) {
+      const paidTimestamp = new Date().toISOString();
+
+      setInvoices((prev) => {
+        let updated = false;
+        const nextInvoices = prev.map((inv) => {
+          if (inv.tenantId === activeTenant.id && (inv.status === 'pending' || inv.status === 'overdue') && !updated) {
+            updated = true;
+            return {
+              ...inv,
+              status: 'paid' as const,
+              paidAt: paidTimestamp,
+              pago_em: paidTimestamp,
+              paymentMethod: 'stripe' as const,
+              stripePaymentId: sessionId || `cs_test_${Date.now()}`,
+            };
+          }
+          return inv;
+        });
+
+        if (!updated) {
+          const newPaidInv: Invoice = {
+            id: `inv-stripe-${Date.now()}`,
+            tenantId: activeTenant.id,
+            tenantName: activeTenant.name,
+            invoiceNumber: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+            amount: activeTenant.plan === 'starter' ? 99.9 : activeTenant.plan === 'enterprise' ? 149.9 : 89.9,
+            status: 'paid',
+            issueDate: new Date().toISOString().split('T')[0],
+            dueDate: new Date().toISOString().split('T')[0],
+            paidAt: paidTimestamp,
+            paymentMethod: 'stripe',
+            stripePaymentId: sessionId || `cs_test_${Date.now()}`,
+            items: [
+              {
+                description: `Assinatura SaaS Plano ${activeTenant.plan.toUpperCase()} - Pago via Stripe`,
+                quantity: 1,
+                unitPrice: activeTenant.plan === 'starter' ? 99.9 : 89.9,
+                total: activeTenant.plan === 'starter' ? 99.9 : 89.9,
+              },
+            ],
+          };
+          nextInvoices.unshift(newPaidInv);
+        }
+
+        localStorage.setItem('barbearia_ls_invoices_v1', JSON.stringify(nextInvoices));
+        return nextInvoices;
+      });
+
+      // Atualiza o tenant para ativo com renovação de 30 dias
+      const nextDate = new Date();
+      nextDate.setDate(nextDate.getDate() + 30);
+      const nextDateStr = nextDate.toISOString().split('T')[0];
+      const invNum = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      setTenants((prevTenants) =>
+        prevTenants.map((t) =>
+          t.id === activeTenant.id
+            ? {
+                ...t,
+                status: 'active',
+                status_assinatura: 'ativo',
+                nextBillingDate: nextDateStr,
+                data_proximo_vencimento: nextDateStr,
+              }
+            : t
+        )
+      );
+
+      // Reconcilia imediatamente no backend PocketBase via Cloud State
+      if (sessionId) {
+        fetch(`/api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`)
+          .then((res) => res.json())
+          .then((data) => {
+            console.log('[Stripe Verify Session Retorno Backend]', data);
+          })
+          .catch((err) => {
+            console.warn('[Stripe Verify Session Erro Backend]', err);
+          });
+      }
+
+      // Abre modal de celebração e confirmação visual para o usuário
+      setPaymentSuccessModal({
+        isOpen: true,
+        nextDate: nextDateStr,
+        invoiceNumber: invNum,
+        tenantName: activeTenant.name || 'Sua Barbearia',
+      });
+
+      // Limpa os parâmetros de busca da URL para não reprocessar no refresh
+      const cleanUrl = window.location.pathname + (window.location.hash || '');
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }, [activeTenant.id]);
 
   useEffect(() => {
     localStorage.setItem('barbearia_ls_ninja_config_v1', JSON.stringify(ninjaConfig));
@@ -411,9 +686,38 @@ export default function App() {
     };
   };
 
-  const handlePayInvoiceSimulated = (invoiceId: string) => {
+  const handlePayInvoiceSimulated = (invoiceId: string, method: 'pix' | 'stripe' = 'pix') => {
     const invoice = invoices.find((inv) => inv.id === invoiceId);
     if (!invoice) return;
+
+    const paidTimestamp = new Date().toISOString();
+    const updatedInvoices = invoices.map((inv) =>
+      inv.id === invoiceId
+        ? {
+            ...inv,
+            status: 'paid' as const,
+            paidAt: paidTimestamp,
+            pago_em: paidTimestamp,
+            paymentMethod: method,
+            stripePaymentId: method === 'stripe' ? (inv.stripePaymentId || `cs_test_${Date.now()}`) : undefined,
+          }
+        : inv
+    );
+
+    setInvoices(updatedInvoices);
+
+    // Atualiza status do tenant para active imediatamente
+    setTenants((prev) =>
+      prev.map((t) =>
+        t.id === invoice.tenantId
+          ? {
+              ...t,
+              status: 'active',
+              status_assinatura: 'ativo',
+            }
+          : t
+      )
+    );
 
     handleTriggerNinjaWebhook({
       eventType: 'invoice.paid',
@@ -421,22 +725,45 @@ export default function App() {
       invoiceId: invoice.id,
       amount: invoice.amount,
     });
+
+    // PUSH IMEDIATO PARA CLOUD-STATE para sincronizar celulares e notebooks no mesmo segundo
+    fetch('/api/barbearia/cloud-state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        state: {
+          tenants: tenants.map((t) => (t.id === invoice.tenantId ? { ...t, status: 'active', status_assinatura: 'ativo' } : t)),
+          barbers,
+          services,
+          bookings,
+          blocks,
+          customers,
+          expenses,
+          cashTransactions,
+          clientPlans,
+          products,
+          invoices: updatedInvoices,
+          updatedAt: paidTimestamp,
+        },
+      }),
+    }).catch(() => {});
   };
 
   // Expenses State (Controle de Gastos & Fluxo de Caixa)
   const [expenses, setExpenses] = useState<Expense[]>(() => {
-    const saved = localStorage.getItem('barbearia_ls_expenses_v1');
+    const saved = localStorage.getItem('naville_expenses_v2_prod');
     return saved ? JSON.parse(saved) : INITIAL_EXPENSES;
   });
 
   useEffect(() => {
-    localStorage.setItem('barbearia_ls_expenses_v1', JSON.stringify(expenses));
+    localStorage.setItem('naville_expenses_v2_prod', JSON.stringify(expenses));
   }, [expenses]);
 
   const handleAddExpense = (newExpData: Omit<Expense, 'id' | 'createdAt'>) => {
     const newExpense: Expense = {
       ...newExpData,
       id: `exp-${Date.now()}`,
+      tenantId: activeTenant.id,
       createdAt: new Date().toISOString(),
     };
     setExpenses((prev) => [newExpense, ...prev]);
@@ -474,18 +801,19 @@ export default function App() {
 
   // Customers State (Mini CRM & Base de Clientes)
   const [customers, setCustomers] = useState<CustomerProfile[]>(() => {
-    const saved = localStorage.getItem('barbearia_ls_customers_v1');
+    const saved = localStorage.getItem('naville_customers_v2_prod');
     return saved ? JSON.parse(saved) : INITIAL_CUSTOMERS;
   });
 
   useEffect(() => {
-    localStorage.setItem('barbearia_ls_customers_v1', JSON.stringify(customers));
+    localStorage.setItem('naville_customers_v2_prod', JSON.stringify(customers));
   }, [customers]);
 
   const handleAddCustomer = (newCustData: Omit<CustomerProfile, 'id' | 'createdAt'>) => {
     const newCust: CustomerProfile = {
       ...newCustData,
       id: `cust-${Date.now()}`,
+      tenantId: activeTenant.id,
       createdAt: new Date().toISOString(),
     };
     setCustomers((prev) => [newCust, ...prev]);
@@ -505,18 +833,19 @@ export default function App() {
 
   // Cash Transactions State (Frente de Caixa / PDV)
   const [cashTransactions, setCashTransactions] = useState<CashTransaction[]>(() => {
-    const saved = localStorage.getItem('barbearia_ls_cash_tx_v1');
+    const saved = localStorage.getItem('naville_cash_tx_v2_prod');
     return saved ? JSON.parse(saved) : INITIAL_CASH_TRANSACTIONS;
   });
 
   useEffect(() => {
-    localStorage.setItem('barbearia_ls_cash_tx_v1', JSON.stringify(cashTransactions));
+    localStorage.setItem('naville_cash_tx_v2_prod', JSON.stringify(cashTransactions));
   }, [cashTransactions]);
 
   const handleAddCashTransaction = (newTxData: Omit<CashTransaction, 'id' | 'timestamp'>) => {
     const newTx: CashTransaction = {
       ...newTxData,
       id: `tx-${Date.now()}`,
+      tenantId: activeTenant.id,
       timestamp: new Date().toISOString(),
     };
     setCashTransactions((prev) => [newTx, ...prev]);
@@ -525,18 +854,19 @@ export default function App() {
 
   // Client Subscription Plans State (Clube de Assinaturas & Recorrência)
   const [clientPlans, setClientPlans] = useState<ClientSubscriptionPlan[]>(() => {
-    const saved = localStorage.getItem('barbearia_ls_client_plans_v1');
+    const saved = localStorage.getItem('naville_client_plans_v2_prod');
     return saved ? JSON.parse(saved) : INITIAL_CLIENT_SUBSCRIPTION_PLANS;
   });
 
   useEffect(() => {
-    localStorage.setItem('barbearia_ls_client_plans_v1', JSON.stringify(clientPlans));
+    localStorage.setItem('naville_client_plans_v2_prod', JSON.stringify(clientPlans));
   }, [clientPlans]);
 
   const handleAddClientPlan = (newPlanData: Omit<ClientSubscriptionPlan, 'id' | 'createdAt'>) => {
     const newPlan: ClientSubscriptionPlan = {
       ...newPlanData,
       id: `cplan-${Date.now()}`,
+      barbearia_id: activeTenant.id,
       createdAt: new Date().toISOString(),
     };
     setClientPlans((prev) => [newPlan, ...prev]);
@@ -556,7 +886,7 @@ export default function App() {
 
   // Products State (Produtos & Estoque Interno da Barbearia - NÃO aparecem no agendamento do cliente)
   const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('barbearia_ls_products_v1');
+    const saved = localStorage.getItem('naville_products_v2_prod');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -568,7 +898,7 @@ export default function App() {
   });
 
   useEffect(() => {
-    localStorage.setItem('barbearia_ls_products_v1', JSON.stringify(products));
+    localStorage.setItem('naville_products_v2_prod', JSON.stringify(products));
   }, [products]);
 
   const handleAddProduct = (newProdData: Omit<Product, 'id'>) => {
@@ -599,7 +929,7 @@ export default function App() {
 
   // Services State (com persistência e catálogo editável)
   const [services, setServices] = useState<Service[]>(() => {
-    const saved = localStorage.getItem('barbearia_ls_services_v1');
+    const saved = localStorage.getItem('naville_services_v2_prod');
     if (saved) {
       try {
         const parsed: Service[] = JSON.parse(saved);
@@ -617,7 +947,7 @@ export default function App() {
     return INITIAL_SERVICES;
   });
   const [selectedServices, setSelectedServices] = useState<Service[]>(() => {
-    const saved = localStorage.getItem('barbearia_ls_services_v1');
+    const saved = localStorage.getItem('naville_services_v2_prod');
     const all = saved ? JSON.parse(saved) : INITIAL_SERVICES;
     const firstActive = all.find((s: Service) => s.active !== false);
     return firstActive ? [firstActive] : [all[0]];
@@ -625,29 +955,10 @@ export default function App() {
 
   // Barbers State (com persistência e trava de plano)
   const [barbers, setBarbers] = useState<Barber[]>(() => {
-    const saved = localStorage.getItem('barbearia_ls_barbers');
+    const saved = localStorage.getItem('naville_barbers_v2_prod');
     if (saved) {
       try {
-        const parsed: Barber[] = JSON.parse(saved);
-        const merged = [...parsed];
-        INITIAL_BARBERS.forEach((ib) => {
-          const idx = merged.findIndex((b) => b.id === ib.id);
-          if (idx !== -1) {
-            merged[idx] = {
-              ...ib,
-              ...merged[idx],
-              attendanceType: merged[idx].attendanceType || ib.attendanceType,
-              acceptsSubscriptionClub:
-                merged[idx].acceptsSubscriptionClub !== undefined
-                  ? merged[idx].acceptsSubscriptionClub
-                  : ib.acceptsSubscriptionClub,
-              serviceIds: merged[idx].serviceIds || ib.serviceIds,
-            };
-          } else {
-            merged.push(ib);
-          }
-        });
-        return merged;
+        return JSON.parse(saved);
       } catch (e) {
         return INITIAL_BARBERS;
       }
@@ -670,60 +981,276 @@ export default function App() {
 
   // Persistence: Bookings, Blocks, Webhook Logs, Config
   const [bookings, setBookings] = useState<Booking[]>(() => {
-    const saved = localStorage.getItem('barbearia_ls_bookings_v1');
+    const saved = localStorage.getItem('naville_bookings_v2_prod');
     return saved ? JSON.parse(saved) : INITIAL_BOOKINGS;
   });
 
   const [blocks, setBlocks] = useState<TimeBlock[]>(() => {
-    const saved = localStorage.getItem('barbearia_ls_blocks_v1');
+    const saved = localStorage.getItem('naville_blocks_v2_prod');
     return saved ? JSON.parse(saved) : INITIAL_BLOCKS;
   });
 
-  const [evolutionConfig, setEvolutionConfig] = useState<EvolutionApiConfig>(() => {
-    const saved = localStorage.getItem('barbearia_ls_evolution_config');
-    return saved ? JSON.parse(saved) : DEFAULT_EVOLUTION_CONFIG;
+  const [evolutionConfigsByTenant, setEvolutionConfigsByTenant] = useState<Record<string, EvolutionApiConfig>>(() => {
+    const saved = localStorage.getItem('naville_evolution_configs_by_tenant_v2');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          for (const k of Object.keys(parsed)) {
+            if (parsed[k]?.baseUrl && (parsed[k].baseUrl.includes('evolution-api') || parsed[k].baseUrl.includes(':8080'))) {
+              parsed[k].baseUrl = '';
+            }
+          }
+          return parsed;
+        }
+      } catch (_) {}
+    }
+    return {};
   });
 
+  const activeEvolutionConfig: EvolutionApiConfig = useMemo(() => {
+    if (evolutionConfigsByTenant[activeTenant.id]) {
+      return evolutionConfigsByTenant[activeTenant.id];
+    }
+    const cleanInstance = `naville_${(activeTenant.slug || activeTenant.id).replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+    return {
+      baseUrl: '',
+      apiKey: '4f89d3a1b72e5c9f0861ab4e3c7d92f15082e6da19743c5b8df2194a860eb3c1',
+      instanceName: cleanInstance,
+      autoSendEnabled: true,
+      reminderHoursBefore: 2,
+      connectionStatus: 'close',
+      qrcode: undefined,
+      number: undefined,
+      profileName: undefined,
+    };
+  }, [evolutionConfigsByTenant, activeTenant.id, activeTenant.slug]);
+
+  const handleUpdateEvolutionConfig = (newCfg: EvolutionApiConfig) => {
+    setEvolutionConfigsByTenant((prev) => {
+      const updated = { ...prev, [activeTenant.id]: newCfg };
+      localStorage.setItem('naville_evolution_configs_by_tenant_v2', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const evolutionConfig = activeEvolutionConfig;
+  const setEvolutionConfig = handleUpdateEvolutionConfig;
+
   const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>(() => {
-    const saved = localStorage.getItem('barbearia_ls_webhook_logs');
+    const saved = localStorage.getItem('naville_webhook_logs_v2_prod');
     return saved ? JSON.parse(saved) : [];
   });
+
+  // ==============================================================================
+  // ISOLAMENTO MULTI-TENANT: Dados Filtrados Estritamente por Barbearia Ativa
+  // Garante que uma nova barbearia inicie com ZERO serviços, ZERO clientes e ZERO barbeiros
+  // ==============================================================================
+  const activeTenantServices = useMemo(() => {
+    return services.filter((s) => s.tenantId === activeTenant.id || (!s.tenantId && activeTenant.id === 'tenant-barbearia-ls'));
+  }, [services, activeTenant.id]);
+
+  const activeTenantBarbers = useMemo(() => {
+    return barbers.filter((b) => b.tenantId === activeTenant.id || (!b.tenantId && activeTenant.id === 'tenant-barbearia-ls'));
+  }, [barbers, activeTenant.id]);
+
+  const activeTenantBookings = useMemo(() => {
+    return bookings.filter((b) => b.tenantId === activeTenant.id || (!b.tenantId && activeTenant.id === 'tenant-barbearia-ls'));
+  }, [bookings, activeTenant.id]);
+
+  const activeTenantBlocks = useMemo(() => {
+    return blocks.filter((b) => b.tenantId === activeTenant.id || (!b.tenantId && activeTenant.id === 'tenant-barbearia-ls'));
+  }, [blocks, activeTenant.id]);
+
+  const activeTenantCustomers = useMemo(() => {
+    return customers.filter((c) => c.tenantId === activeTenant.id || (!c.tenantId && activeTenant.id === 'tenant-barbearia-ls'));
+  }, [customers, activeTenant.id]);
+
+  const activeTenantExpenses = useMemo(() => {
+    return expenses.filter((e) => e.tenantId === activeTenant.id || (!e.tenantId && activeTenant.id === 'tenant-barbearia-ls'));
+  }, [expenses, activeTenant.id]);
+
+  const activeTenantCashTransactions = useMemo(() => {
+    return cashTransactions.filter((tx) => tx.tenantId === activeTenant.id || (!tx.tenantId && activeTenant.id === 'tenant-barbearia-ls'));
+  }, [cashTransactions, activeTenant.id]);
+
+  const activeTenantClientPlans = useMemo(() => {
+    return clientPlans.filter((p) => p.barbearia_id === activeTenant.id || (!p.barbearia_id && activeTenant.id === 'tenant-barbearia-ls'));
+  }, [clientPlans, activeTenant.id]);
+
+  const activeTenantProducts = useMemo(() => {
+    return products.filter((p) => p.tenantId === activeTenant.id || (!p.tenantId && activeTenant.id === 'tenant-barbearia-ls'));
+  }, [products, activeTenant.id]);
 
   // Modals
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
   const [isBlockModalOpen, setIsBlockModalOpen] = useState<boolean>(false);
+  const [blockModalBarberId, setBlockModalBarberId] = useState<string | undefined>(undefined);
   const [isWebhookModalOpen, setIsWebhookModalOpen] = useState<boolean>(false);
   const [isQRCodeModalOpen, setIsQRCodeModalOpen] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [cloudLoaded, setCloudLoaded] = useState<boolean>(false);
+
+  // Sincronização automática com Stripe Live para compensar novas faturas pagas
+  useEffect(() => {
+    fetch('/api/stripe/sync-recent-payments')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((res) => {
+        if (res && res.success && res.syncedCount > 0) {
+          // Recarrega o cloud-state atualizado
+          fetch('/api/barbearia/cloud-state')
+            .then((r) => (r.ok ? r.json() : null))
+            .then((csRes) => {
+              if (csRes && csRes.success && csRes.state) {
+                let st = csRes.state;
+                if (Array.isArray(st) && typeof st[0] === 'number') {
+                  try {
+                    let s = '';
+                    for (let i = 0; i < st.length; i++) s += String.fromCharCode(st[i]);
+                    st = JSON.parse(decodeURIComponent(escape(s)));
+                  } catch (_) {}
+                }
+                if (st && Array.isArray(st.invoices)) setInvoices(st.invoices);
+                if (st && Array.isArray(st.tenants)) setTenants(st.tenants);
+              }
+            }).catch(() => {});
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+    // Sincronização Cloud State (PocketBase) para funcionar entre celular e notebook em tempo real
+  useEffect(() => {
+    fetch('/api/barbearia/cloud-state')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((res) => {
+        if (res && res.success && res.state) {
+          let st = res.state;
+          if (Array.isArray(st) && typeof st[0] === 'number') {
+            try {
+              let s = '';
+              for (let i = 0; i < st.length; i++) s += String.fromCharCode(st[i]);
+              st = JSON.parse(decodeURIComponent(escape(s)));
+            } catch (_) {
+              try {
+                let s = '';
+                for (let i = 0; i < st.length; i++) s += String.fromCharCode(st[i]);
+                st = JSON.parse(s);
+              } catch (_) {}
+            }
+          } else if (typeof st === 'string') {
+            try { st = JSON.parse(st); } catch (_) {}
+          }
+          if (st && typeof st === 'object') {
+          if (Array.isArray(st.tenants)) {
+            setTenants(st.tenants);
+            const urlSlug = extractSlugFromUrl();
+            if (urlSlug) {
+              const found = st.tenants.find((t: TenantConfig) => t.slug === urlSlug || t.id === urlSlug);
+              if (found) setActiveTenantId(found.id);
+            } else if (st.tenants[0]) {
+              setActiveTenantId((prev) =>
+                st.tenants.some((t: TenantConfig) => t.id === prev) ? prev : st.tenants[0].id
+              );
+            }
+          }
+          if (Array.isArray(st.barbers) && st.barbers.length > 0) setBarbers(st.barbers);
+          if (Array.isArray(st.services) && st.services.length > 0) setServices(st.services);
+          if (Array.isArray(st.bookings)) setBookings(st.bookings);
+          if (Array.isArray(st.blocks)) setBlocks(st.blocks);
+          if (Array.isArray(st.customers)) setCustomers(st.customers);
+          if (Array.isArray(st.expenses)) setExpenses(st.expenses);
+          if (Array.isArray(st.cashTransactions)) setCashTransactions(st.cashTransactions);
+          if (Array.isArray(st.clientPlans) && st.clientPlans.length > 0) setClientPlans(st.clientPlans);
+          if (Array.isArray(st.products) && st.products.length > 0) setProducts(st.products);
+          if (Array.isArray(st.invoices)) setInvoices(st.invoices);
+          }
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        setCloudLoaded(true);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!cloudLoaded) return;
+    const timer = setTimeout(() => {
+      fetch('/api/barbearia/cloud-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          state: {
+            tenants,
+            barbers,
+            services,
+            bookings,
+            blocks,
+            customers,
+            expenses,
+            cashTransactions,
+            clientPlans,
+            products,
+            invoices,
+            updatedAt: new Date().toISOString(),
+          },
+        }),
+      }).catch(() => {});
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [
+    cloudLoaded,
+    tenants,
+    barbers,
+    services,
+    bookings,
+    blocks,
+    customers,
+    expenses,
+    cashTransactions,
+    clientPlans,
+    products,
+  ]);
+
+  // Sincroniza bloqueios de horários do PocketBase para a barbearia ativa
+  useEffect(() => {
+    if (activeTenant?.id) {
+      fetchTimeBlocks(activeTenant.id).then((serverBlocks) => {
+        if (serverBlocks && serverBlocks.length > 0) {
+          setBlocks(serverBlocks);
+        }
+      });
+    }
+  }, [activeTenant?.id]);
 
   // Save to LocalStorage
   useEffect(() => {
-    localStorage.setItem('barbearia_ls_bookings_v1', JSON.stringify(bookings));
+    localStorage.setItem('naville_bookings_v2_prod', JSON.stringify(bookings));
   }, [bookings]);
 
   useEffect(() => {
-    localStorage.setItem('barbearia_ls_blocks_v1', JSON.stringify(blocks));
+    localStorage.setItem('naville_blocks_v2_prod', JSON.stringify(blocks));
   }, [blocks]);
 
   useEffect(() => {
-    localStorage.setItem('barbearia_ls_evolution_config', JSON.stringify(evolutionConfig));
+    localStorage.setItem('naville_evolution_config_v2_prod', JSON.stringify(evolutionConfig));
   }, [evolutionConfig]);
 
   useEffect(() => {
-    localStorage.setItem('barbearia_ls_webhook_logs', JSON.stringify(webhookLogs));
+    localStorage.setItem('naville_webhook_logs_v2_prod', JSON.stringify(webhookLogs));
   }, [webhookLogs]);
 
   useEffect(() => {
-    localStorage.setItem('barbearia_ls_barbers', JSON.stringify(barbers));
+    localStorage.setItem('naville_barbers_v2_prod', JSON.stringify(barbers));
   }, [barbers]);
 
   useEffect(() => {
-    localStorage.setItem('barbearia_ls_tenant_config', JSON.stringify(activeTenant));
+    localStorage.setItem('naville_tenant_config_v2_prod', JSON.stringify(activeTenant));
   }, [activeTenant]);
 
   useEffect(() => {
-    localStorage.setItem('barbearia_ls_services_v1', JSON.stringify(services));
+    localStorage.setItem('naville_services_v2_prod', JSON.stringify(services));
   }, [services]);
 
   // Apenas serviços e profissionais ativos para agendamento dos clientes
@@ -915,7 +1442,7 @@ export default function App() {
       webhookDispatched: true,
     };
 
-    // 2. Dispatch Evolution API Webhook
+    // 2. Dispatch Evolution API Webhook & Confirmação Real de Agendamento WhatsApp + Lembrete 2h
     let newLog: WebhookLog | null = null;
     if (notifyWhatsApp) {
       try {
@@ -924,6 +1451,19 @@ export default function App() {
       } catch (err) {
         console.error('Webhook error:', err);
       }
+      sendBookingConfirmationWhatsApp({
+        barbearia_id: activeTenant.id,
+        barbearia_nome: activeTenant.name,
+        agendamento_id: newBooking.id,
+        cliente_nome: newBooking.customerName,
+        cliente_telefone: newBooking.customerPhone,
+        barbeiro_nome: newBooking.barberName,
+        servico_nome: newBooking.services.map((s) => s.name).join(' + '),
+        horario: newBooking.startTime,
+        data: newBooking.date,
+      }).catch((err) => {
+        console.warn('[WhatsApp] Erro não bloqueante ao enviar confirmação de agendamento:', err);
+      });
     }
 
     // 3. Cadastramento automático do cliente no banco de dados usando o WhatsApp como documento único
@@ -997,6 +1537,29 @@ export default function App() {
       prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
     );
 
+    // Se o barbeiro ou dono finalizou o atendimento (pelo celular ou notebook),
+    // agenda automaticamente a mensagem Pós-Corte para daqui a 30 minutos!
+    if (newStatus === 'completed' && targetBooking.status !== 'completed') {
+      const servicoNomes =
+        targetBooking.services && targetBooking.services.length > 0
+          ? targetBooking.services.map((s) => s.name).join(' + ')
+          : 'Corte';
+
+      schedulePostCutWhatsAppMessage({
+        barbearia_id: activeTenant.id,
+        agendamento_id: targetBooking.id,
+        cliente_nome: targetBooking.customerName,
+        cliente_telefone: targetBooking.customerPhone,
+        barbeiro_nome: targetBooking.barberName,
+        servico_nome: servicoNomes,
+        horario: targetBooking.startTime,
+        data: targetBooking.date,
+        delay_minutos: 30,
+      }).catch((err) => {
+        console.warn('[PostCut] Erro não bloqueante ao agendar mensagem pós-corte:', err);
+      });
+    }
+
     // If cancelled, dispatch status change webhook
     if (newStatus === 'cancelled') {
       const log = await dispatchEvolutionWebhook(
@@ -1008,28 +1571,31 @@ export default function App() {
     }
   };
 
-  const handleAddBlock = (blockData: Omit<TimeBlock, 'id' | 'createdAt'>) => {
-    const newBlock: TimeBlock = {
-      ...blockData,
-      id: `blk-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-    };
-    setBlocks((prev) => [...prev, newBlock]);
-    setIsBlockModalOpen(false);
+  const handleOpenBlockModal = (barberId?: string) => {
+    setBlockModalBarberId(typeof barberId === 'string' ? barberId : undefined);
+    setIsBlockModalOpen(true);
   };
 
-  const handleAddBlocks = (blocksData: Array<Omit<TimeBlock, 'id' | 'createdAt'>>) => {
-    const now = Date.now();
-    const newBlocks: TimeBlock[] = blocksData.map((b, idx) => ({
-      ...b,
-      id: `blk-${now}-${idx}`,
-      createdAt: new Date().toISOString(),
-    }));
-    setBlocks((prev) => [...prev, ...newBlocks]);
+  const handleAddBlock = async (blockData: Omit<TimeBlock, 'id' | 'createdAt'>) => {
+    const saved = await createTimeBlock(activeTenant.id, blockData);
+    setBlocks((prev) => [...prev, saved]);
     setIsBlockModalOpen(false);
+    setBlockModalBarberId(undefined);
   };
 
-  const handleRemoveBlock = (blockId: string) => {
+  const handleAddBlocks = async (blocksData: Array<Omit<TimeBlock, 'id' | 'createdAt'>>) => {
+    const savedList: TimeBlock[] = [];
+    for (const b of blocksData) {
+      const saved = await createTimeBlock(activeTenant.id, b);
+      savedList.push(saved);
+    }
+    setBlocks((prev) => [...prev, ...savedList]);
+    setIsBlockModalOpen(false);
+    setBlockModalBarberId(undefined);
+  };
+
+  const handleRemoveBlock = async (blockId: string) => {
+    await deleteTimeBlock(blockId);
     setBlocks((prev) => prev.filter((b) => b.id !== blockId));
   };
 
@@ -1040,9 +1606,8 @@ export default function App() {
 
   // Barber Management Handlers (com trava de limite por plano)
   const handleAddBarber = (newBarberData: Omit<Barber, 'id'>): boolean => {
-    const activeCount = barbers.filter((b) => b.active !== false).length;
+    const activeCount = barbers.filter((b) => (b.tenantId === activeTenant.id || (!b.tenantId && activeTenant.id === 'tenant-barbearia-ls')) && b.active !== false).length;
     const limite = activeTenant.limite_profissionais ?? activeTenant.max_barbeiros ?? 1;
-    // Trava de limite de profissionais por plano / matriz de recursos
     if (activeCount >= limite) {
       return false;
     }
@@ -1050,6 +1615,7 @@ export default function App() {
     const newBarber: Barber = {
       ...newBarberData,
       id,
+      tenantId: activeTenant.id,
       active: true,
     };
     setBarbers((prev) => [...prev, newBarber]);
@@ -1089,6 +1655,7 @@ export default function App() {
     const newService: Service = {
       ...newServiceData,
       id,
+      tenantId: activeTenant.id,
     };
     setServices((prev) => [...prev, newService]);
   };
@@ -1117,7 +1684,7 @@ export default function App() {
 
       {/* Top Header (Clean customer header or dedicated admin header) */}
       {/* Top Header */}
-      {currentView !== 'client' && (
+      {currentView !== 'client' && currentView !== 'landing' && (
         <Header
           currentView={currentView}
           onNavigate={handleNavigate}
@@ -1142,13 +1709,28 @@ export default function App() {
         activeTenantName={activeTenant.name}
       >
         <main className={`flex-1 w-full mx-auto transition-all duration-200 ${
-          (currentView === 'client' && uiVersion === 'v2') || currentView === 'super-admin' || currentView === 'login'
+          currentView === 'landing' || (currentView === 'client' && uiVersion === 'v2') || currentView === 'super-admin' || currentView === 'login'
             ? 'p-0 max-w-full space-y-0'
             : currentView === 'client' || currentView === 'barber'
             ? 'px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 max-w-2xl sm:max-w-3xl'
             : 'px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 max-w-[1600px]'
         }`}>
-        {currentView === 'login' ? (
+        {currentView === 'landing' ? (
+          /* Domínio Raiz Principal (https://navillebarber.pro/) -> Landing Page Oficial de Venda SaaS */
+          <NavilleSaasLandingPage
+            tenants={tenants}
+            plans={SAAS_PLANS}
+            onNavigateToLogin={() => handleNavigate('login')}
+            onNavigateToSuperAdmin={() => handleNavigate('super-admin')}
+            onOpenTenantLink={(slug: string, subView: 'client' | 'admin' | 'barber' = 'client') => {
+              const found = tenants.find((t) => t.slug === slug || t.id === slug);
+              if (found) {
+                setActiveTenantId(found.id);
+              }
+              handleNavigate(subView, slug);
+            }}
+          />
+        ) : currentView === 'login' ? (
           /* Área de Login Segura (Dono / Barbeiro com Logo da Barbearia & Super Admin Master com Logo Branca Naville) */
           <SecureLoginView
             initialPortal={
@@ -1229,6 +1811,7 @@ export default function App() {
               onSelectTenant={handleSelectTenant}
               onUpdateTenant={handleUpdateTenant}
               onAddTenant={handleAddTenant}
+              onGenerateInvoice={handleGenerateInvoice}
               onNavigateView={handleNavigate}
               onUpdateInvoiceNinjaConfig={setNinjaConfig}
               onUpdateCrmConfig={setCrmConfig}
@@ -1255,8 +1838,8 @@ export default function App() {
             <BarberPwaView
               currentUser={authSession.user}
               tenant={activeTenant}
-              barbers={barbers}
-              bookings={bookings}
+              barbers={activeTenantBarbers}
+              bookings={activeTenantBookings}
               onUpdateBookingStatus={handleUpdateBookingStatus}
               onOpenLoginModal={() => setIsLoginModalOpen(true)}
               isTenantBlocked={activeTenant.status === 'blocked'}
@@ -1270,12 +1853,12 @@ export default function App() {
             /* NOVA VERSÃO 2.0 (NAVILLE LUXURY SUITE) - ADAPTADA ÀS FUNÇÕES ATUAIS */
             <NavilleLuxuryClientView
               tenantConfig={activeTenant}
-              services={services}
-              barbers={barbers}
-              bookings={bookings}
-              blocks={blocks}
-              customers={customers.filter((c) => c.tenantId === activeTenant.id)}
-              clientPlans={clientPlans.filter((p) => p.barbearia_id === activeTenant.id)}
+              services={activeTenantServices}
+              barbers={activeTenantBarbers}
+              bookings={activeTenantBookings}
+              blocks={activeTenantBlocks}
+              customers={activeTenantCustomers}
+              clientPlans={activeTenantClientPlans}
               onConfirmBooking={async (data) => {
                 setIsSubmitting(true);
                 setErrorMessage(null);
@@ -1321,13 +1904,27 @@ export default function App() {
                   webhookDispatched: true,
                 };
 
-                // 2. Dispatch Evolution API Webhook
+                // 2. Dispatch Evolution API Webhook & Confirmação Real de Agendamento WhatsApp + Lembrete 2h
                 try {
                   const newLog = await dispatchEvolutionWebhook('booking.created', newBooking, evolutionConfig);
                   setWebhookLogs((prev) => [newLog, ...prev]);
                 } catch (err) {
                   console.error('Webhook error:', err);
                 }
+
+                sendBookingConfirmationWhatsApp({
+                  barbearia_id: activeTenant.id,
+                  barbearia_nome: activeTenant.name,
+                  agendamento_id: newBooking.id,
+                  cliente_nome: newBooking.customerName,
+                  cliente_telefone: newBooking.customerPhone,
+                  barbeiro_nome: newBooking.barberName,
+                  servico_nome: newBooking.services.map((s) => s.name).join(' + '),
+                  horario: newBooking.startTime,
+                  data: newBooking.date,
+                }).catch((err) => {
+                  console.warn('[WhatsApp] Erro não bloqueante ao enviar confirmação de agendamento:', err);
+                });
 
                 // 3. Cadastramento automático no banco de dados e vínculo ao número de WhatsApp (documento do cliente)
                 const cleanPhoneInput = cleanDigits(data.customerPhone);
@@ -1556,10 +2153,10 @@ export default function App() {
         ) : (
           /* Admin / Barber Panel (Dono ou Barbeiro Habilitado) */
           <AdminScheduleView
-            barbers={barbers}
-            services={services}
-            bookings={bookings}
-            blocks={blocks}
+            barbers={activeTenantBarbers}
+            services={activeTenantServices}
+            bookings={activeTenantBookings}
+            blocks={activeTenantBlocks}
             selectedDate={selectedDate}
             evolutionConfig={evolutionConfig}
             tenantConfig={activeTenant}
@@ -1573,10 +2170,10 @@ export default function App() {
             onUpdateExpense={handleUpdateExpense}
             onDeleteExpense={handleDeleteExpense}
             onToggleExpensePaid={handleToggleExpensePaid}
-            customers={customers.filter((c) => c.tenantId === activeTenant.id)}
-            cashTransactions={cashTransactions.filter((tx) => tx.tenantId === activeTenant.id)}
-            clientPlans={clientPlans}
-            products={products.filter((p) => p.tenantId === activeTenant.id || !p.tenantId)}
+            customers={activeTenantCustomers}
+            cashTransactions={activeTenantCashTransactions}
+            clientPlans={activeTenantClientPlans}
+            products={activeTenantProducts}
             onAddProduct={handleAddProduct}
             onUpdateProduct={handleUpdateProduct}
             onDeleteProduct={handleDeleteProduct}
@@ -1590,7 +2187,7 @@ export default function App() {
             onAddCashTransaction={handleAddCashTransaction}
             onSelectDate={setSelectedDate}
             onUpdateStatus={handleUpdateBookingStatus}
-            onOpenBlockModal={() => setIsBlockModalOpen(true)}
+            onOpenBlockModal={handleOpenBlockModal}
             onUpdateEvolutionConfig={setEvolutionConfig}
             onAddBarber={handleAddBarber}
             onUpdateBarber={handleUpdateBarber}
@@ -1622,7 +2219,11 @@ export default function App() {
           selectedDate={selectedDate}
           tenantPlan={activeTenant.plan}
           maxBarbers={activeTenant.max_barbeiros || 1}
-          onClose={() => setIsBlockModalOpen(false)}
+          initialBarberId={blockModalBarberId}
+          onClose={() => {
+            setIsBlockModalOpen(false);
+            setBlockModalBarberId(undefined);
+          }}
           onAddBlock={handleAddBlock}
           onAddBlocks={handleAddBlocks}
           onRemoveBlock={handleRemoveBlock}
@@ -1650,6 +2251,56 @@ export default function App() {
       {/* Notificações e Toasts Refinados para Usuário Final */}
       <UserFriendlyToast />
 
+      {/* Modal de Celebracao de Pagamento Confirmado Stripe */}
+      {paymentSuccessModal?.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+          <div className="relative w-full max-w-md bg-zinc-950 border border-emerald-500/40 rounded-2xl p-6 shadow-2xl text-center space-y-4">
+            <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+              <CheckCircle className="w-9 h-9" />
+            </div>
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold mb-2">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Compensação Imediata</span>
+              </div>
+              <h3 className="text-xl font-bold text-white">Pagamento Confirmado! 🎉</h3>
+              <p className="text-sm text-zinc-400 mt-1">
+                Sua assinatura do <strong className="text-amber-400">Naville Barber SaaS</strong> para <strong className="text-white">{paymentSuccessModal.tenantName}</strong> está 100% ativa.
+              </p>
+            </div>
+            <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-4 text-left space-y-2.5 text-xs">
+              <div className="flex justify-between items-center text-zinc-400">
+                <span>Status da Assinatura:</span>
+                <span className="text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Ativa & Em Dia
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-zinc-400">
+                <span>Próxima Renovação:</span>
+                <span className="text-white font-medium">{paymentSuccessModal.nextDate.split('-').reverse().join('/')}</span>
+              </div>
+              <div className="flex justify-between items-center text-zinc-400">
+                <span>Fatura Registrada:</span>
+                <span className="text-amber-400 font-mono font-medium">{paymentSuccessModal.invoiceNumber}</span>
+              </div>
+              <div className="flex justify-between items-center text-zinc-400">
+                <span>Recibo Oficial:</span>
+                <span className="text-amber-400 font-medium">Disponível em "Minha Assinatura"</span>
+              </div>
+            </div>
+            <p className="text-xs text-zinc-500">
+              O agendamento online público e todos os recursos do painel administrativo continuam 100% liberados sem nenhum bloqueio.
+            </p>
+            <button
+              onClick={() => setPaymentSuccessModal(null)}
+              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 transition cursor-pointer"
+            >
+              Acessar Painel Agora
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Autenticação Segura & Troca de Papéis (RBAC / WhatsApp OTP) */}
       <BarberLoginModal
         isOpen={isLoginModalOpen}
@@ -1662,7 +2313,7 @@ export default function App() {
       />
 
       {/* Quiet Footer */}
-      {currentView !== 'super-admin' && currentView !== 'client' && currentView !== 'login' && (
+      {currentView !== 'super-admin' && currentView !== 'client' && currentView !== 'login' && currentView !== 'landing' && (
         <footer className="py-6 border-t border-white/5 text-center text-xs text-zinc-500 w-full overflow-hidden">
         <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">

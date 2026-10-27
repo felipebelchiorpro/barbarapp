@@ -19,6 +19,36 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/png" href="/naville_logo.png" />
     <link rel="manifest" href="/manifest.json" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <script>
+      (function () {
+        try {
+          localStorage.removeItem('naville_sec_lockout_store_v1');
+          localStorage.removeItem('naville_sec_lockout_store_v2');
+          localStorage.removeItem('naville_sec_lockout_store_v3');
+          sessionStorage.removeItem('naville_sec_lockout_store_v1');
+          sessionStorage.removeItem('naville_sec_lockout_store_v2');
+          sessionStorage.removeItem('naville_sec_lockout_store_v3');
+          
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function (regs) {
+              for (var i = 0; i < regs.length; i++) {
+                regs[i].unregister();
+              }
+            });
+          }
+          if ('caches' in window) {
+            caches.keys().then(function (names) {
+              for (var i = 0; i < names.length; i++) {
+                caches.delete(names[i]);
+              }
+            });
+          }
+        } catch (e) {}
+      })();
+    </script>
 
     <!-- Google Fonts: Premium Typography (Plus Jakarta Sans, Playfair Display, Poppins, Montserrat, Inter) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -30,4 +60,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

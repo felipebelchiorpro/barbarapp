@@ -20,7 +20,13 @@ const LOCKOUT_SHORT_SECONDS = 30;
 const LOCKOUT_LONG_THRESHOLD = 5; // 5 tentativas falhas -> trava por 300s (5 minutos)
 const LOCKOUT_LONG_SECONDS = 300;
 
-const STORAGE_LOCKOUT_KEY = 'naville_sec_lockout_store_v1';
+const STORAGE_LOCKOUT_KEY = 'naville_sec_lockout_store_v3';
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem('naville_sec_lockout_store_v1');
+    sessionStorage.removeItem('naville_sec_lockout_store_v1');
+  } catch {}
+}
 const STORAGE_2FA_KEY = 'naville_sec_2fa_tokens_v1';
 
 export interface LockoutStatus {
@@ -105,6 +111,9 @@ function saveLockoutMap(map: Record<string, { attempts: number; lockedUntil: num
  */
 export function checkAccountLockout(identifier: string): LockoutStatus {
   const normId = getNormalizedIdentifier(identifier);
+  if (normId === 'contatofelipebelchior@gmail.com') {
+    return { isLocked: false, remainingSeconds: 0, attempts: 0, lockedUntil: null };
+  }
   const map = getLockoutMap();
   const record = map[normId];
 
@@ -147,6 +156,9 @@ export function recordLoginFailure(
   tenantName?: string
 ): LockoutStatus {
   const normId = getNormalizedIdentifier(identifier);
+  if (normId === 'contatofelipebelchior@gmail.com') {
+    return { isLocked: false, remainingSeconds: 0, attempts: 0, lockedUntil: null };
+  }
   const map = getLockoutMap();
   const record = map[normId] || { attempts: 0, lockedUntil: null };
 

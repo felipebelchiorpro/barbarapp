@@ -337,6 +337,20 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
       {/* Bottom Section */}
       <div className="pt-4 mt-4 border-t border-white/5 space-y-3">
+        {/* Botão de Bloquear Horário / Almoço / Pausa */}
+        {onOpenBlockModal && (
+          <button
+            onClick={() => {
+              onOpenBlockModal();
+              onCloseMobile();
+            }}
+            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-[#D4AF37] border border-amber-500/25 text-xs font-semibold transition cursor-pointer active:scale-95 shadow-sm"
+          >
+            <LockKey className="w-4 h-4" weight="regular" />
+            <span>Bloquear Horários / Almoço</span>
+          </button>
+        )}
+
         {/* Info do Plano */}
         <div className="p-3 rounded-xl bg-zinc-900/80 border border-white/5 flex items-center justify-between text-xs">
           <div>

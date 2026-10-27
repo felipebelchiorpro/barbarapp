@@ -18,6 +18,11 @@ import {
   getEvolutionConnectQRCode,
   logoutEvolutionInstance,
 } from '../../services/evolutionApi';
+import {
+  getWahaSessionStatus,
+  getWahaQRCode,
+  logoutWahaSession,
+} from '../../services/wahaApi';
 import { WhatsAppIcon } from '../WhatsAppIcon';
 
 interface WhatsAppConnectionCardProps {
@@ -32,6 +37,7 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
   onStatusChange,
 }) => {
   const [status, setStatus] = useState<WhatsAppConnectionStatus>('close');
+  const [engine, setEngine] = useState<'waha' | 'evolution'>('waha');
   const [connectedPhone, setConnectedPhone] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState<boolean>(false);
   const [isLoadingQR, setIsLoadingQR] = useState<boolean>(false);
@@ -44,17 +50,25 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
   const [editConfig, setEditConfig] = useState<EvolutionApiConfig>(config);
   const [configSuccess, setConfigSuccess] = useState<boolean>(false);
 
+  // Mantém editConfig sincronizado com alterações externas
+  useEffect(() => {
+    setEditConfig(config);
+  }, [config]);
+
   // Referência para controlar o polling leve a cada 3 segundos
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   /**
-   * Checa o status da conexão via /instance/connectionState ou proxy seguro
+   * Checa o status da conexão via WAHA ou Evolution API
    */
   const checkStatus = useCallback(async () => {
     setIsChecking(true);
     setErrorMessage(null);
     try {
-      const res = await getEvolutionConnectionState(config);
+      const res = engine === 'waha'
+        ? await getWahaSessionStatus(config)
+        : await getEvolutionConnectionState(config);
+
       setStatus(res.status);
       if (res.phone) setConnectedPhone(res.phone);
       setLastChecked(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
@@ -72,12 +86,12 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
     } finally {
       setIsChecking(false);
     }
-  }, [config, onStatusChange]);
+  }, [config, onStatusChange, engine]);
 
   const [qrSecondsLeft, setQrSecondsLeft] = useState<number>(45);
 
   /**
-   * Temporizador de expiração do QR Code (Baileys expira a cada 45 segundos)
+   * Temporizador de expiração do QR Code (expira a cada 45 segundos)
    */
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -99,14 +113,16 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
   }, [qrBase64]);
 
   /**
-   * Busca e exibe o QR Code via /instance/connect (Com Auto-Provisionamento de Instância se necessário)
+   * Busca e exibe o QR Code via WAHA ou Evolution API
    */
   const handleGenerateQRCode = async (forceNew = true) => {
     setIsLoadingQR(true);
     setErrorMessage(null);
     try {
       setStatus('connecting');
-      const result = await getEvolutionConnectQRCode(config, forceNew);
+      const result = engine === 'waha'
+        ? await getWahaQRCode(config, forceNew)
+        : await getEvolutionConnectQRCode(config, forceNew);
 
       if (result.base64) {
         setQrBase64(result.base64);
@@ -114,7 +130,7 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
       } else {
         const currentState = await checkStatus();
         if (currentState !== 'open') {
-          setErrorMessage('Não foi possível obter o QR Code da Evolution API. Verifique a instância.');
+          setErrorMessage(`Não foi possível obter o QR Code via ${engine === 'waha' ? 'WAHA' : 'Evolution API'}. Verifique o serviço.`);
         }
       }
     } catch (err: unknown) {
@@ -127,7 +143,7 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
   };
 
   /**
-   * Desconecta a sessão via /instance/logout
+   * Desconecta a sessão via WAHA ou Evolution API
    */
   const handleLogout = async () => {
     if (!window.confirm('Tem certeza que deseja desconectar o WhatsApp da barbearia?')) {
@@ -135,7 +151,11 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
     }
     setIsChecking(true);
     try {
-      await logoutEvolutionInstance(config);
+      if (engine === 'waha') {
+        await logoutWahaSession(config);
+      } else {
+        await logoutEvolutionInstance(config);
+      }
       setStatus('close');
       setConnectedPhone(null);
       setQrBase64(null);
@@ -156,7 +176,10 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
 
     if (shouldPoll) {
       pollingRef.current = setInterval(async () => {
-        const res = await getEvolutionConnectionState(config);
+        const res = engine === 'waha'
+          ? await getWahaSessionStatus(config)
+          : await getEvolutionConnectionState(config);
+
         if (res.status === 'open') {
           setStatus('open');
           if (res.phone) setConnectedPhone(res.phone);
@@ -182,7 +205,7 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
         pollingRef.current = null;
       }
     };
-  }, [qrBase64, status, config, onStatusChange]);
+  }, [qrBase64, status, config, onStatusChange, engine]);
 
   // Checagem inicial na montagem do componente
   useEffect(() => {
@@ -267,11 +290,59 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
         </div>
       </div>
 
+      {/* Engine Switcher Row */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 pb-1">
+        <div className="flex items-center gap-1.5 p-1 bg-black/40 rounded-xl border border-white/5">
+          <button
+            type="button"
+            onClick={() => {
+              setEngine('waha');
+              setQrBase64(null);
+            }}
+            className={`px-3 py-1 rounded-lg text-[11px] font-bold tracking-wide transition flex items-center gap-1.5 cursor-pointer ${
+              engine === 'waha'
+                ? 'bg-[#25D366]/20 text-[#25D366] border border-[#25D366]/40 shadow-xs'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-[#25D366]" />
+            <span>WAHA (Opção 1 · Recomendado)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEngine('evolution');
+              setQrBase64(null);
+            }}
+            className={`px-3 py-1 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5 cursor-pointer ${
+              engine === 'evolution'
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <span>Evolution API</span>
+          </button>
+        </div>
+
+        <span className="text-[10px] text-zinc-500 hidden sm:inline">
+          {engine === 'waha' ? '⚡ Sessões isoladas, sem travamentos de Redis e reconexão estável' : 'Sessões gerenciadas via Evolution v2'}
+        </span>
+      </div>
+
       {/* Error alert if any */}
       {errorMessage && (
-        <div className="mt-3 p-3 rounded-xl bg-red-950/40 border border-red-500/30 text-red-300 text-xs flex items-center gap-2 animate-in fade-in">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{errorMessage}</span>
+        <div className="mt-3 p-3 rounded-xl bg-red-950/40 border border-red-500/30 text-red-300 text-xs flex items-center justify-between gap-2 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowConfig(true)}
+            className="text-[11px] underline text-red-200 hover:text-white shrink-0 font-medium cursor-pointer"
+          >
+            Abrir Config
+          </button>
         </div>
       )}
 
@@ -369,22 +440,39 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
                   <p>2. Toque em <strong>Conectar um aparelho</strong> e aponte para o código acima</p>
                 </div>
 
-                <div className="flex items-center gap-2 pt-1">
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
                   <button
+                    type="button"
                     onClick={() => handleGenerateQRCode(true)}
                     disabled={isLoadingQR}
-                    className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#D4A373] to-[#B88656] text-[#0F0F12] text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-sm"
+                    className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#D4A373] to-[#B88656] text-[#0F0F12] text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-sm cursor-pointer"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isLoadingQR ? 'animate-spin' : ''}`} />
                     <span>Gerar Novo QR Code</span>
                   </button>
 
                   <button
+                    type="button"
+                    onClick={() => {
+                      setStatus('open');
+                      setConnectedPhone('+55 (11) 98765-4321');
+                      setQrBase64(null);
+                      onStatusChange?.('open');
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                    title="Simular leitura com sucesso para testes no navegador"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Simular Conexão (Teste)</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => {
                       setQrBase64(null);
                       setStatus('close');
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-zinc-800/60 hover:bg-zinc-800 text-xs text-zinc-400 hover:text-white transition"
+                    className="px-3 py-1.5 rounded-lg bg-zinc-800/60 hover:bg-zinc-800 text-xs text-zinc-400 hover:text-white transition cursor-pointer"
                   >
                     Cancelar
                   </button>

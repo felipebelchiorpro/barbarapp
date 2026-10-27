@@ -12,3 +12,4 @@ pocketbase/pocketbase.exe
 agency-agents-repo/
 backups/
 !deploy/.env.production.example
+*.tar.gz

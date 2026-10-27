@@ -48,7 +48,7 @@ interface ClientClubManagementViewProps {
   customers: CustomerProfile[];
   services: Service[];
   tenantId: string;
-  tenantPlan?: 'starter' | 'pro' | 'enterprise';
+  tenantPlan?: 'starter' | 'pro' | 'enterprise' | 'partner';
   onOpenUpgradeModal?: () => void;
   onAddPlan: (newPlan: Omit<ClientSubscriptionPlan, 'id' | 'createdAt'>) => void;
   onUpdatePlan: (plan: ClientSubscriptionPlan) => void;

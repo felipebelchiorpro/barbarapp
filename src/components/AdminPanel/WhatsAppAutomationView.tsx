@@ -65,6 +65,12 @@ const EVENT_TABS: { id: WhatsAppTemplateEventType; label: string; badge: string;
     desc: 'Reduz o "No-Show" lembrando o cliente poucas horas antes do atendimento.',
   },
   {
+    id: 'pos_corte',
+    label: 'Pós-Corte (30 min após)',
+    badge: 'Charme & Pós-Venda',
+    desc: 'Enviada automaticamente 30 minutos após o barbeiro finalizar o atendimento pelo celular ou notebook.',
+  },
+  {
     id: 'reativacao_cliente',
     label: 'Reativação de Cliente',
     badge: 'CRM Automático',
@@ -103,10 +109,26 @@ export const WhatsAppAutomationView: React.FC<WhatsAppAutomationViewProps> = ({
   // Ref da textarea para inserção no cursor
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Carrega templates ao montar
+  // Status de conexão em tempo real sincronizado
+  const [liveConnected, setLiveConnected] = useState<boolean>(isWhatsAppConnected);
+
+  useEffect(() => {
+    setLiveConnected(isWhatsAppConnected);
+  }, [isWhatsAppConnected]);
+
+  // Carrega templates ao montar e checa status ao vivo
   useEffect(() => {
     loadTemplates();
     loadHistory();
+
+    fetch(`/api/barbearia/whatsapp/status?barbearia_id=${encodeURIComponent(barbeariaId)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.status === 'open') {
+          setLiveConnected(true);
+        }
+      })
+      .catch(() => {});
   }, [barbeariaId]);
 
   // Atualiza os campos do editor quando troca de aba
@@ -129,6 +151,11 @@ export const WhatsAppAutomationView: React.FC<WhatsAppAutomationViewProps> = ({
           'Fala {nome_cliente}! ⏰ Passando pra lembrar do seu horário daqui a pouco na barbearia!\n\n📅 Horário: {horario} hoje\n✂️ Serviço: {servico} com {barbeiro}\n\nEstamos te esperando! Se tiver algum imprevisto, avisa a gente por aqui.'
         );
         setCurrentDelay(25);
+      } else if (selectedEventType === 'pos_corte') {
+        setCurrentContent(
+          'Opa {nome_cliente}, e aí, tudo bem? 💈✂️\n\nPassando pra agradecer a preferência hoje no seu {servico} com {barbeiro}! Espero que tenha gostado do resultado.\n\nQuando precisar dar aquele talento no visual de novo, estamos aí de volta! Tamo junto! 🤝'
+        );
+        setCurrentDelay(35);
       } else {
         setCurrentContent(
           'Fala {nome_cliente}, sumido! 💈 Já faz um tempo desde o seu último corte com {barbeiro}.\n\nQue tal dar aquele talento no visual essa semana?\n\n{beneficio_clube}\n\nResponda essa mensagem para agendar o seu horário!'
@@ -224,17 +251,20 @@ export const WhatsAppAutomationView: React.FC<WhatsAppAutomationViewProps> = ({
    * Dispara teste real para o WhatsApp
    */
   const handleSendTest = async () => {
-    if (!testPhone || testPhone.trim().length < 8) {
+    const rawClean = testPhone.replace(/\D/g, '');
+    if (!rawClean || rawClean.length < 8) {
       alert('Por favor, informe um número de WhatsApp válido.');
       return;
     }
+
+    const formattedPhone = (rawClean.length === 10 || rawClean.length === 11) ? `55${rawClean}` : rawClean;
 
     setIsSendingTest(true);
     setTestResult(null);
     try {
       const res = await sendWhatsAppTestMessage({
         barbearia_id: barbeariaId,
-        telefone: testPhone,
+        telefone: formattedPhone,
         tipo_evento: selectedEventType,
         conteudo: currentContent,
         simular_digitando: currentSimularDigitando,
@@ -311,13 +341,13 @@ export const WhatsAppAutomationView: React.FC<WhatsAppAutomationViewProps> = ({
               type="button"
               onClick={onNavigateToConnection}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-medium transition-all ${
-                isWhatsAppConnected
+                liveConnected
                   ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400 hover:bg-emerald-900/40'
                   : 'bg-amber-950/40 border-amber-500/30 text-amber-400 hover:bg-amber-900/40 animate-pulse'
               }`}
             >
               <WhatsAppIcon variant="official" size={16} />
-              <span>{isWhatsAppConnected ? 'WhatsApp Conectado' : 'Conectar QR Code'}</span>
+              <span>{liveConnected ? 'WhatsApp Conectado' : 'Conectar QR Code'}</span>
             </button>
           )}
         </div>
@@ -332,7 +362,7 @@ export const WhatsAppAutomationView: React.FC<WhatsAppAutomationViewProps> = ({
       )}
 
       {/* 3. SELEÇÃO DO TIPO DE EVENTO (TABS) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {EVENT_TABS.map((tab) => {
           const isSelected = selectedEventType === tab.id;
           return (
@@ -777,16 +807,23 @@ export const WhatsAppAutomationView: React.FC<WhatsAppAutomationViewProps> = ({
                     className="p-3.5 rounded-xl bg-zinc-900/60 border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                   >
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                             item.status === 'enviado'
                               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                              : item.status === 'agendado'
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                               : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                           }`}
                         >
-                          {item.status}
+                          {item.status === 'agendado' ? 'Agendado (30 min)' : item.status}
                         </span>
+                        {item.tipo_evento === 'pos_corte' && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-[#D4AF37] border border-amber-500/20">
+                            Pós-Corte
+                          </span>
+                        )}
                         <span className="font-semibold text-white">{item.cliente_nome}</span>
                         <span className="text-zinc-500 font-mono">({item.cliente_telefone})</span>
                       </div>

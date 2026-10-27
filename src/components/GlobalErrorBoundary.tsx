@@ -78,6 +78,11 @@ export class GlobalErrorBoundary extends Component<Props, State> {
                 Não foi possível concluir o carregamento desta seção no momento. O incidente foi
                 registrado automaticamente para análise do suporte técnico.
               </p>
+              {this.state.errorMessage && (
+                <div className="mt-2 p-2 rounded-lg bg-red-950/40 border border-red-500/20 text-left font-mono text-[11px] text-red-300 break-words">
+                  {this.state.errorMessage}
+                </div>
+              )}
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2.5">
@@ -97,6 +102,21 @@ export class GlobalErrorBoundary extends Component<Props, State> {
               >
                 <House className="w-4 h-4" weight="regular" />
                 <span>Voltar ao Início</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  try {
+                    localStorage.removeItem('naville_tenants_v2_prod');
+                    localStorage.removeItem('barbearia_ls_invoices_v1');
+                    localStorage.removeItem('naville_invoices_v2_prod');
+                  } catch (_) {}
+                  window.location.reload();
+                }}
+                className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white text-[11px] font-medium transition flex items-center justify-center gap-1.5 cursor-pointer border border-white/5"
+                title="Limpar dados em cache deste navegador e sincronizar novamente com o servidor"
+              >
+                <span>Limpar Cache</span>
               </button>
             </div>
 

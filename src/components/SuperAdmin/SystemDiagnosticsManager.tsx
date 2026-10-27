@@ -3,7 +3,6 @@ import {
   WarningOctagon,
   CheckCircle,
   Clock,
-  Funnel,
   MagnifyingGlass,
   ArrowsClockwise,
   Receipt,
@@ -15,16 +14,11 @@ import {
   ArrowSquareOut,
   X,
   Bug,
-  ShieldCheck,
-  Sparkle,
   Trash,
-  SlidersHorizontal,
-  Info,
 } from '@phosphor-icons/react';
 import {
   SystemErrorLog,
   SystemErrorLevel,
-  SystemErrorModule,
   SystemErrorTechnicalDetails,
   TenantConfig,
 } from '../../types';
@@ -33,11 +27,8 @@ import {
   toggleResolveSystemError,
   bulkResolveSystemErrors,
   clearSystemErrorLogs,
-  resetSystemErrorLogsToDefault,
-  logSystemError,
 } from '../../services/systemErrorLogService';
 import { formatDatePtBR } from '../../utils/formatters';
-import { WhatsAppIcon } from '../WhatsAppIcon';
 
 interface SystemDiagnosticsManagerProps {
   tenants: TenantConfig[];
@@ -58,7 +49,6 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'resolved'>('open');
   const [selectedLog, setSelectedLog] = useState<SystemErrorLog | null>(null);
   const [copiedStack, setCopiedStack] = useState(false);
-  const [isSimulating, setIsSimulating] = useState(false);
 
   // Escuta atualizações reativas de novos erros
   useEffect(() => {
@@ -110,162 +100,82 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
       if (statusFilter === 'open' && log.resolvido) return false;
       if (statusFilter === 'resolved' && !log.resolvido) return false;
 
-      // Busca por Texto
+      // Busca textual
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const msg = (log.mensagem_erro || '').toLowerCase();
-        const tenantName = (log.barbearia_nome || '').toLowerCase();
-        const tenantId = (log.barbearia_id || '').toLowerCase();
-        const details = typeof log.detalhes_tecnicos === 'string'
-          ? log.detalhes_tecnicos.toLowerCase()
-          : JSON.stringify(log.detalhes_tecnicos || {}).toLowerCase();
+        const matchesMsg = log.mensagem_erro.toLowerCase().includes(q);
+        const matchesTenantName = (log.barbearia_nome || '').toLowerCase().includes(q);
+        const matchesId = log.id.toLowerCase().includes(q);
+        const matchesStack = typeof log.detalhes_tecnicos === 'object' &&
+          'stackTrace' in (log.detalhes_tecnicos || {}) &&
+          ((log.detalhes_tecnicos as SystemErrorTechnicalDetails).stackTrace || '').toLowerCase().includes(q);
 
-        return msg.includes(q) || tenantName.includes(q) || tenantId.includes(q) || details.includes(q);
+        return matchesMsg || matchesTenantName || matchesId || matchesStack;
       }
 
       return true;
     });
   }, [logs, tenantFilter, moduleFilter, levelFilter, statusFilter, searchQuery]);
 
-  // Alterna resolução
-  const handleToggleResolve = async (logId: string) => {
-    const updated = await toggleResolveSystemError(logId);
-    if (updated) {
-      refreshLogs();
-      if (selectedLog && selectedLog.id === logId) {
-        setSelectedLog(updated);
-      }
+  // Ação de Resolver / Reabrir
+  const handleToggleResolve = (logId: string) => {
+    toggleResolveSystemError(logId, 'superadmin');
+    refreshLogs();
+    if (selectedLog && selectedLog.id === logId) {
+      setSelectedLog((prev) => (prev ? { ...prev, resolvido: !prev.resolvido } : null));
     }
   };
 
-  // Resolver todos os abertos visíveis
-  const handleResolveAllVisible = async () => {
-    const openIds = filteredLogs.filter((l) => !l.resolvido).map((l) => l.id);
-    if (openIds.length === 0) return;
-    await bulkResolveSystemErrors(openIds);
+  // Resolver todos visíveis
+  const handleResolveAllVisible = () => {
+    const openVisibleIds = filteredLogs.filter((l) => !l.resolvido).map((l) => l.id);
+    if (openVisibleIds.length === 0) return;
+    bulkResolveSystemErrors(openVisibleIds);
     refreshLogs();
   };
 
-  // Copia stack trace
+  // Copiar Stack Trace
   const handleCopyStack = (text: string) => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(text);
-      setCopiedStack(true);
-      setTimeout(() => setCopiedStack(false), 2000);
-    }
-  };
-
-  // Disparar erro de simulação para testes
-  const handleSimulateError = async (type: 'evolution' | 'pdv' | 'faturacao' | 'runtime') => {
-    setIsSimulating(true);
-    try {
-      const sampleTenant = tenants[0] || { id: 'tenant-barbearia-ls', name: 'Naville Barber' };
-
-      if (type === 'evolution') {
-        await logSystemError({
-          barbearia_id: sampleTenant.id,
-          barbearia_nome: sampleTenant.name,
-          nivel: 'erro_api',
-          modulo: 'evolution_api',
-          mensagem_erro: `Evolution API Connection Timeout (504): Falha ao sincronizar webhook com instância '${sampleTenant.slug || 'matriz'}'`,
-          detalhes_tecnicos: {
-            endpoint: `https://api.evolution.local/message/sendText/${sampleTenant.slug || 'matriz'}`,
-            httpStatus: 504,
-            errorName: 'TimeoutException',
-            stackTrace: `TimeoutException: WhatsApp instance didn't acknowledge message within 8000ms\n    at dispatchEvolutionWebhook (webpack:///src/services/webhookService.ts:130:15)\n    at triggerEvolutionPing (webpack:///src/App.tsx:840:11)`,
-          },
-          showToast: true,
-          toastMessage: 'Instabilidade na Evolution API detectada e registrada com sucesso no diagnóstico.',
-        });
-      } else if (type === 'pdv') {
-        await logSystemError({
-          barbearia_id: sampleTenant.id,
-          barbearia_nome: sampleTenant.name,
-          nivel: 'critico',
-          modulo: 'pdv_checkout',
-          mensagem_erro: 'Falha no Fechamento de Comanda: Conflito de transação simultânea no PDV',
-          detalhes_tecnicos: {
-            endpoint: '/api/pdv/checkout',
-            httpStatus: 409,
-            errorName: 'ConcurrentLockException',
-            requestPayload: { comandaId: `CMD-${Math.floor(1000 + Math.random() * 9000)}`, valor: 85.0 },
-            stackTrace: `ConcurrentLockException: Lock acquirement timed out for cash register\n    at closeComandaSession (webpack:///src/components/AdminPanel/ComandaSaleModal.tsx:430:9)`,
-          },
-          showToast: true,
-          toastMessage: 'Ocorreu um erro no processamento do PDV. Dados preservados com segurança.',
-        });
-      } else if (type === 'faturacao') {
-        await logSystemError({
-          barbearia_id: sampleTenant.id,
-          barbearia_nome: sampleTenant.name,
-          nivel: 'aviso',
-          modulo: 'faturacao',
-          mensagem_erro: 'Invoice Ninja: Cobrança recorrente retornou status "em_processamento_bancario"',
-          detalhes_tecnicos: {
-            endpoint: '/api/invoice-ninja/charge',
-            httpStatus: 202,
-            errorName: 'PendingClearingWarning',
-            stackTrace: `Warning: Pix clearing pending confirmation from central bank\n    at triggerInvoicePayment (webpack:///src/services/invoiceNinjaService.ts:240:8)`,
-          },
-        });
-      } else {
-        await logSystemError({
-          barbearia_id: null,
-          barbearia_nome: 'Global / Plataforma',
-          nivel: 'critico',
-          modulo: 'sistema_geral',
-          mensagem_erro: 'Uncaught TypeError: Cannot read property "id" of null no módulo de renderização',
-          detalhes_tecnicos: {
-            errorName: 'TypeError',
-            stackTrace: `TypeError: Cannot read properties of null (reading 'id')\n    at renderCustomerCard (webpack:///src/components/AdminPanel/CustomersManagementView.tsx:112:20)\n    at render (node_modules/react-dom/cjs/react-dom.production.min.js:189:24)`,
-          },
-          showToast: true,
-          toastMessage: 'Instabilidade detectada. Ação interceptada silenciosamente sem travar a tela.',
-        });
-      }
-
-      refreshLogs();
-    } finally {
-      setIsSimulating(false);
-    }
+    navigator.clipboard.writeText(text);
+    setCopiedStack(true);
+    setTimeout(() => setCopiedStack(false), 2000);
   };
 
   // Helper de badge por módulo
-  const renderModuleBadge = (mod: SystemErrorModule) => {
-    switch (mod) {
+  const renderModuleBadge = (modulo: string) => {
+    switch (modulo) {
       case 'evolution_api':
         return (
-          <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1">
-            <WhatsAppIcon variant="official" size={13} />
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40 inline-flex items-center gap-1">
             <span>Evolution API</span>
           </span>
         );
       case 'pdv_checkout':
         return (
-          <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20 inline-flex items-center gap-1">
-            <ShoppingCart className="w-3 h-3" weight="bold" />
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-800/40 inline-flex items-center gap-1">
+            <ShoppingCart className="w-3 h-3" />
             <span>PDV Checkout</span>
           </span>
         );
       case 'faturacao':
         return (
-          <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-[#D4AF37] border border-amber-500/20 inline-flex items-center gap-1">
-            <Receipt className="w-3 h-3" weight="bold" />
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/40 inline-flex items-center gap-1">
+            <Receipt className="w-3 h-3" />
             <span>Faturação</span>
           </span>
         );
       case 'agendamento':
         return (
-          <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 inline-flex items-center gap-1">
-            <CalendarCheck className="w-3 h-3" weight="bold" />
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-800/40 inline-flex items-center gap-1">
+            <CalendarCheck className="w-3 h-3" />
             <span>Agendamento</span>
           </span>
         );
       default:
         return (
-          <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-zinc-800 text-zinc-400 border border-zinc-700 inline-flex items-center gap-1">
-            <TerminalWindow className="w-3 h-3" weight="bold" />
-            <span>Sistema Geral</span>
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700 inline-flex items-center gap-1">
+            <TerminalWindow className="w-3 h-3" />
+            <span>Sistema</span>
           </span>
         );
     }
@@ -276,23 +186,23 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
     switch (level) {
       case 'critico':
         return (
-          <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-red-500/15 text-red-400 border border-red-500/30 inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/40 inline-flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
             <span>Crítico</span>
           </span>
         );
       case 'erro_api':
         return (
-          <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30 inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-800/40 inline-flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
             <span>Erro API</span>
           </span>
         );
       case 'aviso':
       default:
         return (
-          <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30 inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/40 inline-flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
             <span>Aviso</span>
           </span>
         );
@@ -306,7 +216,7 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) return 'Agora mesmo';
+    if (diffMins < 1) return 'Agora';
     if (diffMins < 60) return `Há ${diffMins} min`;
     if (diffHours < 24) return `Há ${diffHours}h`;
     return `Há ${diffDays}d`;
@@ -316,22 +226,22 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
     <div className="space-y-6">
       {/* Top Banner de Alerta se houver incidentes abertos */}
       {stats.open > 0 && (
-        <div className="p-4 rounded-2xl bg-red-950/20 border border-red-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in duration-300">
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 dark:bg-rose-950/20 dark:border-rose-800/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0">
-              <WarningOctagon className="w-6 h-6" weight="fill" />
+            <div className="w-9 h-9 rounded-lg bg-rose-100 border border-rose-200 dark:bg-rose-900/40 dark:border-rose-800 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
+              <WarningOctagon className="w-5 h-5" weight="fill" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-red-400 uppercase tracking-wider">
-                  Atenção de Suporte Técnico
+                <span className="text-xs font-semibold text-rose-800 dark:text-rose-300 uppercase tracking-wider">
+                  Incidentes Técnicos
                 </span>
-                <span className="px-2 py-0.2 rounded-full text-[10px] font-bold bg-red-500/20 text-red-300 font-mono">
-                  {stats.open} não resolvido(s)
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-medium bg-rose-200/60 dark:bg-rose-900/60 text-rose-900 dark:text-rose-200">
+                  {stats.open} pendente(s)
                 </span>
               </div>
-              <p className="text-xs text-zinc-300 mt-0.5">
-                Existem {stats.critical} falhas críticas e {stats.apiErrors} erros de API pendentes de averiguação pela equipe.
+              <p className="text-xs text-rose-700 dark:text-rose-400 mt-0.5">
+                Existem {stats.critical} falhas críticas e {stats.apiErrors} erros de API pendentes de averiguação.
               </p>
             </div>
           </div>
@@ -339,15 +249,15 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleResolveAllVisible}
-              className="px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 text-xs font-semibold transition cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium transition cursor-pointer shadow-xs"
             >
               Resolver Visíveis
             </button>
             <button
               onClick={() => setStatusFilter('open')}
-              className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-semibold transition border border-white/10 cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-xs font-medium transition border border-slate-200 dark:border-zinc-800 cursor-pointer shadow-xs"
             >
-              Filtrar Apenas Abertos
+              Filtrar Abertos
             </button>
           </div>
         </div>
@@ -357,16 +267,16 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase font-bold tracking-widest px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-              <Bug className="w-3.5 h-3.5" weight="bold" /> Central de Diagnóstico
+            <span className="text-[10px] uppercase font-semibold tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 flex items-center gap-1">
+              <Bug className="w-3.5 h-3.5" /> Auditoria Técnica
             </span>
-            <span className="text-xs text-zinc-400 font-mono">Telemetria & Erros por Barbearia</span>
+            <span className="text-xs text-slate-500 dark:text-zinc-400 font-mono">Telemetria & Erros</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold font-display text-white tracking-tight mt-1">
-            Logs de Incidentes & Suporte Técnico
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-zinc-100 tracking-tight mt-1">
+            Logs de Incidentes & Diagnóstico
           </h2>
-          <p className="text-xs text-zinc-400 max-w-2xl">
-            Captura silenciosa de falhas da Evolution API, timeouts, crashes de renderização e exceções de pagamento sem impacto visual ao usuário final.
+          <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-2xl">
+            Monitoramento de falhas de rede, requisições de API, timeouts e exceções silenciosas do sistema.
           </p>
         </div>
 
@@ -374,33 +284,23 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={refreshLogs}
-            className="h-9 px-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-white/10 text-xs font-semibold flex items-center gap-2 transition cursor-pointer"
+            className="h-8 px-3 rounded-lg bg-white dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-800 text-xs font-medium flex items-center gap-1.5 transition cursor-pointer shadow-xs"
             title="Atualizar logs"
           >
-            <ArrowsClockwise className="w-4 h-4 text-amber-400" weight="bold" />
+            <ArrowsClockwise className="w-3.5 h-3.5" />
             <span>Atualizar</span>
           </button>
 
           <button
-            onClick={resetSystemErrorLogsToDefault}
-            className="h-9 px-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-white/10 text-xs font-semibold flex items-center gap-2 transition cursor-pointer"
-            title="Recarregar dados de exemplo"
-          >
-            <Sparkle className="w-4 h-4 text-purple-400" weight="regular" />
-            <span>Mocks Padrão</span>
-          </button>
-
-          <button
             onClick={() => {
-              if (window.confirm('Tem certeza que deseja limpar todos os logs técnicos?')) {
-                clearSystemErrorLogs();
-                refreshLogs();
-              }
+              clearSystemErrorLogs();
+              refreshLogs();
             }}
-            className="h-9 px-3 rounded-xl bg-zinc-900 hover:bg-red-950/40 text-zinc-400 hover:text-red-400 border border-white/10 hover:border-red-500/30 text-xs font-semibold transition cursor-pointer"
-            title="Limpar logs"
+            className="h-8 px-3 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 text-xs font-medium flex items-center gap-1.5 transition cursor-pointer"
+            title="Limpar histórico de incidentes"
           >
-            <Trash className="w-4 h-4" />
+            <Trash className="w-3.5 h-3.5" />
+            <span>Limpar Logs</span>
           </button>
         </div>
       </div>
@@ -408,88 +308,48 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
       {/* KPI Cards de Telemetria Técnica */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {/* Total Ocorrências */}
-        <div className="p-4 rounded-2xl bg-[#18181B] border border-white/5 space-y-1">
-          <span className="text-[10px] uppercase font-bold text-zinc-500 block">Total Incidentes</span>
-          <div className="text-2xl font-bold font-mono text-white">{stats.total}</div>
-          <span className="text-[10px] text-zinc-400 block">Histórico persistido</span>
+        <div className="p-4 rounded-xl bg-white border border-slate-200 dark:bg-[#121215] dark:border-zinc-800 space-y-1 shadow-xs">
+          <span className="text-[10px] uppercase font-medium text-slate-500 dark:text-zinc-400 block">Total Incidentes</span>
+          <div className="text-2xl font-bold font-mono text-slate-900 dark:text-zinc-100">{stats.total}</div>
+          <span className="text-[10px] text-slate-400 dark:text-zinc-500 block">Histórico persistido</span>
         </div>
 
         {/* Não Resolvidos */}
-        <div className="p-4 rounded-2xl bg-[#18181B] border border-red-500/20 space-y-1 relative overflow-hidden">
+        <div className="p-4 rounded-xl bg-white border border-slate-200 dark:bg-[#121215] dark:border-zinc-800 space-y-1 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold text-red-400 block">Em Aberto</span>
-            <span className="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+            <span className="text-[10px] uppercase font-medium text-rose-600 dark:text-rose-400 block">Em Aberto</span>
+            {stats.open > 0 && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>}
           </div>
-          <div className="text-2xl font-bold font-mono text-red-400">{stats.open}</div>
-          <span className="text-[10px] text-zinc-400 block">Aguardando análise</span>
+          <div className="text-2xl font-bold font-mono text-rose-600 dark:text-rose-400">{stats.open}</div>
+          <span className="text-[10px] text-slate-400 dark:text-zinc-500 block">Aguardando análise</span>
         </div>
 
         {/* Críticos */}
-        <div className="p-4 rounded-2xl bg-[#18181B] border border-white/5 space-y-1">
-          <span className="text-[10px] uppercase font-bold text-amber-400 block">Falhas Críticas</span>
-          <div className="text-2xl font-bold font-mono text-amber-300">{stats.critical}</div>
-          <span className="text-[10px] text-zinc-400 block">PDV ou Runtime</span>
+        <div className="p-4 rounded-xl bg-white border border-slate-200 dark:bg-[#121215] dark:border-zinc-800 space-y-1 shadow-xs">
+          <span className="text-[10px] uppercase font-medium text-amber-600 dark:text-amber-400 block">Falhas Críticas</span>
+          <div className="text-2xl font-bold font-mono text-amber-600 dark:text-amber-400">{stats.critical}</div>
+          <span className="text-[10px] text-slate-400 dark:text-zinc-500 block">PDV ou Runtime</span>
         </div>
 
         {/* Erros de API */}
-        <div className="p-4 rounded-2xl bg-[#18181B] border border-white/5 space-y-1">
-          <span className="text-[10px] uppercase font-bold text-purple-400 block">Erros de API</span>
-          <div className="text-2xl font-bold font-mono text-purple-300">{stats.apiErrors}</div>
-          <span className="text-[10px] text-zinc-400 block">Evolution / Webhooks</span>
+        <div className="p-4 rounded-xl bg-white border border-slate-200 dark:bg-[#121215] dark:border-zinc-800 space-y-1 shadow-xs">
+          <span className="text-[10px] uppercase font-medium text-purple-600 dark:text-purple-400 block">Erros de API</span>
+          <div className="text-2xl font-bold font-mono text-purple-600 dark:text-purple-400">{stats.apiErrors}</div>
+          <span className="text-[10px] text-slate-400 dark:text-zinc-500 block">Evolution / Webhooks</span>
         </div>
 
         {/* Taxa de Resolução */}
-        <div className="p-4 rounded-2xl bg-[#18181B] border border-emerald-500/20 space-y-1">
-          <span className="text-[10px] uppercase font-bold text-emerald-400 block">Taxa Resolução</span>
-          <div className="text-2xl font-bold font-mono text-emerald-400">
+        <div className="p-4 rounded-xl bg-white border border-slate-200 dark:bg-[#121215] dark:border-zinc-800 space-y-1 shadow-xs">
+          <span className="text-[10px] uppercase font-medium text-emerald-600 dark:text-emerald-400 block">Taxa Resolução</span>
+          <div className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
             {stats.resolutionRate.toFixed(0)}%
           </div>
-          <span className="text-[10px] text-zinc-400 block">{stats.resolved} baixas efetuadas</span>
-        </div>
-      </div>
-
-      {/* Barra de Simulação Rápida para QA / Demonstração */}
-      <div className="p-3.5 rounded-xl bg-black/40 border border-white/10 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-xs text-zinc-400">
-          <Sparkle className="w-4 h-4 text-[#D4AF37]" weight="bold" />
-          <strong className="text-zinc-200">Simulador de QA:</strong>
-          <span>Dispare incidentes de teste para validar a captura silenciosa e visualização técnica:</span>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => handleSimulateError('evolution')}
-            disabled={isSimulating}
-            className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-[11px] font-bold transition cursor-pointer disabled:opacity-50"
-          >
-            + Falha Evolution API
-          </button>
-          <button
-            onClick={() => handleSimulateError('pdv')}
-            disabled={isSimulating}
-            className="px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 text-[11px] font-bold transition cursor-pointer disabled:opacity-50"
-          >
-            + Erro no PDV
-          </button>
-          <button
-            onClick={() => handleSimulateError('faturacao')}
-            disabled={isSimulating}
-            className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-[#D4AF37] border border-amber-500/20 text-[11px] font-bold transition cursor-pointer disabled:opacity-50"
-          >
-            + Falha Faturação
-          </button>
-          <button
-            onClick={() => handleSimulateError('runtime')}
-            disabled={isSimulating}
-            className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[11px] font-bold transition cursor-pointer disabled:opacity-50"
-          >
-            + Crash de Runtime
-          </button>
+          <span className="text-[10px] text-slate-400 dark:text-zinc-500 block">{stats.resolved} baixas efetuadas</span>
         </div>
       </div>
 
       {/* Filtros da Tabela */}
-      <div className="p-4 rounded-2xl bg-[#18181B] border border-white/5 space-y-3">
+      <div className="p-4 rounded-xl bg-white border border-slate-200 dark:bg-[#121215] dark:border-zinc-800 space-y-3 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* Busca por Texto */}
           <div className="relative flex-1 max-w-md">
@@ -498,9 +358,9 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar em mensagens, stack trace, endpoints..."
-              className="w-full h-9 pl-8 pr-3 rounded-xl bg-black/40 border border-white/10 text-white text-xs placeholder-zinc-500 focus:outline-none focus:border-[#D4AF37]"
+              className="w-full h-8 pl-8 pr-3 rounded-lg bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-xs placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-zinc-600"
             />
-            <MagnifyingGlass className="w-4 h-4 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <MagnifyingGlass className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
           </div>
 
           {/* Filtros em Dropdowns */}
@@ -509,7 +369,7 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
             <select
               value={tenantFilter}
               onChange={(e) => setTenantFilter(e.target.value)}
-              className="h-9 px-3 rounded-xl bg-black/40 border border-white/10 text-zinc-300 text-xs focus:outline-none focus:border-[#D4AF37] cursor-pointer"
+              className="h-8 px-3 rounded-lg bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-xs focus:outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-zinc-600 cursor-pointer"
             >
               <option value="all">Todas as Barbearias</option>
               <option value="global">Global / Sem Tenant</option>
@@ -524,7 +384,7 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
             <select
               value={moduleFilter}
               onChange={(e) => setModuleFilter(e.target.value)}
-              className="h-9 px-3 rounded-xl bg-black/40 border border-white/10 text-zinc-300 text-xs focus:outline-none focus:border-[#D4AF37] cursor-pointer"
+              className="h-8 px-3 rounded-lg bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-xs focus:outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-zinc-600 cursor-pointer"
             >
               <option value="all">Todos os Módulos</option>
               <option value="evolution_api">Evolution API</option>
@@ -538,7 +398,7 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
             <select
               value={levelFilter}
               onChange={(e) => setLevelFilter(e.target.value)}
-              className="h-9 px-3 rounded-xl bg-black/40 border border-white/10 text-zinc-300 text-xs focus:outline-none focus:border-[#D4AF37] cursor-pointer"
+              className="h-8 px-3 rounded-lg bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-xs focus:outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-zinc-600 cursor-pointer"
             >
               <option value="all">Todos os Níveis</option>
               <option value="critico">Crítico</option>
@@ -547,33 +407,33 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
             </select>
 
             {/* Status */}
-            <div className="flex items-center p-0.5 rounded-xl bg-black/40 border border-white/10">
+            <div className="flex items-center p-0.5 rounded-lg bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
               <button
                 onClick={() => setStatusFilter('open')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
                   statusFilter === 'open'
-                    ? 'bg-red-500/20 text-red-300 border border-red-500/30'
-                    : 'text-zinc-400 hover:text-white'
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/40 font-semibold'
+                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
                 }`}
               >
                 Abertos ({logs.filter((l) => !l.resolvido).length})
               </button>
               <button
                 onClick={() => setStatusFilter('resolved')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
                   statusFilter === 'resolved'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    : 'text-zinc-400 hover:text-white'
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40 font-semibold'
+                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
                 }`}
               >
                 Resolvidos ({logs.filter((l) => l.resolvido).length})
               </button>
               <button
                 onClick={() => setStatusFilter('all')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
                   statusFilter === 'all'
-                    ? 'bg-[#D4AF37] text-black font-bold'
-                    : 'text-zinc-400 hover:text-white'
+                    ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-xs font-semibold'
+                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
                 }`}
               >
                 Todos ({logs.length})
@@ -583,9 +443,9 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
         </div>
 
         {/* Tabela de Incidentes */}
-        <div className="overflow-x-auto rounded-xl border border-white/5">
-          <table className="w-full text-left text-xs text-zinc-300">
-            <thead className="bg-[#141416] text-[10px] uppercase font-bold tracking-wider text-zinc-400 border-b border-white/5">
+        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-zinc-800">
+          <table className="w-full text-left text-xs text-slate-700 dark:text-zinc-300">
+            <thead className="bg-slate-50 dark:bg-zinc-900/60 text-[10px] uppercase font-medium tracking-wider text-slate-500 dark:text-zinc-400 border-b border-slate-200 dark:border-zinc-800">
               <tr>
                 <th className="py-3 px-3.5">Data / Hora</th>
                 <th className="py-3 px-3.5">Barbearia Afetada</th>
@@ -596,11 +456,11 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
                 <th className="py-3 px-3.5 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5 bg-[#18181B]">
+            <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/80 bg-white dark:bg-[#121215]">
               {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-zinc-500">
-                    <CheckCircle className="w-8 h-8 text-emerald-400 mx-auto mb-2" weight="duotone" />
+                  <td colSpan={7} className="py-8 text-center text-slate-400 dark:text-zinc-500">
+                    <CheckCircle className="w-7 h-7 text-emerald-500 mx-auto mb-1.5" />
                     Nenhum incidente encontrado para os filtros selecionados.
                   </td>
                 </tr>
@@ -612,87 +472,85 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
                   return (
                     <tr
                       key={log.id}
-                      className={`hover:bg-white/[0.02] transition ${
-                        !log.resolvido ? 'border-l-2 border-l-red-500/70' : ''
+                      className={`hover:bg-slate-50/70 dark:hover:bg-zinc-800/40 transition ${
+                        !log.resolvido ? 'border-l-2 border-l-rose-500' : ''
                       }`}
                     >
                       {/* Data / Hora */}
-                      <td className="py-3.5 px-3.5 whitespace-nowrap">
-                        <div className="font-mono text-zinc-200 font-semibold">
+                      <td className="py-3 px-3.5 whitespace-nowrap">
+                        <div className="font-mono text-slate-800 dark:text-zinc-200 font-medium">
                           {formatTimeAgo(log.data_hora)}
                         </div>
-                        <div className="text-[10px] text-zinc-500 font-mono">
+                        <div className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">
                           {formatDatePtBR(log.data_hora.split('T')[0])} {log.data_hora.split('T')[1]?.substring(0, 5)}
                         </div>
                       </td>
 
                       {/* Barbearia */}
-                      <td className="py-3.5 px-3.5">
-                        <div className="font-bold text-white text-xs">
+                      <td className="py-3 px-3.5">
+                        <div className="font-semibold text-slate-900 dark:text-zinc-100 text-xs">
                           {tenantDisplayName}
                         </div>
-                        {log.barbearia_id ? (
-                          <div className="text-[10px] text-zinc-500 font-mono">
+                        {log.barbearia_id && (
+                          <div className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">
                             ID: {log.barbearia_id}
                           </div>
-                        ) : (
-                          <span className="text-[10px] text-zinc-500 italic">Geral / Sem tenant</span>
                         )}
                       </td>
 
                       {/* Módulo */}
-                      <td className="py-3.5 px-3.5 whitespace-nowrap">
+                      <td className="py-3 px-3.5 whitespace-nowrap">
                         {renderModuleBadge(log.modulo)}
                       </td>
 
                       {/* Nível */}
-                      <td className="py-3.5 px-3.5 whitespace-nowrap">
+                      <td className="py-3 px-3.5 whitespace-nowrap">
                         {renderLevelBadge(log.nivel)}
                       </td>
 
                       {/* Mensagem Resumida */}
-                      <td className="py-3.5 px-3.5 max-w-xs md:max-w-md">
-                        <div className="text-zinc-200 font-medium truncate" title={log.mensagem_erro}>
+                      <td className="py-3 px-3.5 max-w-xs md:max-w-md">
+                        <div className="text-slate-800 dark:text-zinc-200 font-medium truncate" title={log.mensagem_erro}>
                           {log.mensagem_erro}
                         </div>
                         {typeof log.detalhes_tecnicos === 'object' && log.detalhes_tecnicos?.endpoint && (
-                          <div className="text-[10px] text-zinc-500 font-mono truncate">
+                          <div className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono truncate">
                             {log.detalhes_tecnicos.endpoint}
                           </div>
                         )}
                       </td>
 
                       {/* Status */}
-                      <td className="py-3.5 px-3.5 text-center whitespace-nowrap">
+                      <td className="py-3 px-3.5 text-center whitespace-nowrap">
                         {log.resolvido ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 inline-flex items-center gap-1">
-                            <Check className="w-3 h-3" weight="bold" />
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40 inline-flex items-center gap-1">
+                            <Check className="w-3 h-3" />
                             <span>Resolvido</span>
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-400 border border-red-500/30 inline-flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/40 inline-flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
                             <span>Aberto</span>
                           </span>
                         )}
                       </td>
 
                       {/* Ações */}
-                      <td className="py-3.5 px-3.5 text-right whitespace-nowrap">
+                      <td className="py-3 px-3.5 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => setSelectedLog(log)}
-                            className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold transition cursor-pointer border border-white/5"
+                            className="px-2.5 py-1 rounded-md bg-white hover:bg-slate-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 text-xs font-medium transition cursor-pointer border border-slate-200 dark:border-zinc-700 shadow-xs"
                           >
                             Inspecionar
                           </button>
 
                           <button
                             onClick={() => handleToggleResolve(log.id)}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer border ${
+                            className={`px-2.5 py-1 rounded-md text-xs font-medium transition cursor-pointer border ${
                               log.resolvido
-                                ? 'bg-zinc-900 text-zinc-400 hover:text-white border-white/5'
-                                : 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border-emerald-500/30'
+                                ? 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-800'
+                                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 dark:text-emerald-400 dark:border-emerald-800/40'
                             }`}
                             title={log.resolvido ? 'Reabrir incidente' : 'Dar baixa como resolvido'}
                           >
@@ -711,21 +569,21 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
 
       {/* Modal / Gaveta de Inspeção Técnica Detalhada */}
       {selectedLog && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-3xl max-h-[90vh] bg-[#141416] border border-amber-500/30 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] bg-white dark:bg-[#141416] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             {/* Header Modal */}
-            <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between bg-[#18181B]">
+            <div className="p-4 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-zinc-900/60">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-[#D4AF37]">
-                  <Bug className="w-5 h-5" weight="bold" />
+                <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 dark:bg-zinc-800 dark:border-zinc-700 flex items-center justify-center text-slate-700 dark:text-zinc-300">
+                  <Bug className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-white font-mono">{selectedLog.id}</span>
+                    <span className="text-xs font-mono font-semibold text-slate-900 dark:text-zinc-100">{selectedLog.id}</span>
                     {renderLevelBadge(selectedLog.nivel)}
                     {renderModuleBadge(selectedLog.modulo)}
                   </div>
-                  <span className="text-xs text-zinc-400">
+                  <span className="text-[11px] text-slate-500 dark:text-zinc-400">
                     Registrado em {new Date(selectedLog.data_hora).toLocaleString('pt-BR')}
                   </span>
                 </div>
@@ -733,38 +591,38 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
 
               <button
                 onClick={() => setSelectedLog(null)}
-                className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition cursor-pointer"
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 dark:text-zinc-500 dark:hover:text-zinc-200 flex items-center justify-center transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Conteúdo Técnico com Scroll */}
-            <div className="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
-              {/* Status & Barbearia */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl bg-black/40 border border-white/5">
+            {/* Conteúdo Técnico */}
+            <div className="p-4 space-y-3 overflow-y-auto flex-1 text-xs">
+              {/* Estabelecimento & Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-lg bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800">
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-zinc-500 block">Estabelecimento Afetado</span>
-                  <div className="font-bold text-white text-sm mt-0.5">
-                    {selectedLog.barbearia_nome || 'Global / Sem barbearia específica'}
+                  <span className="text-[10px] uppercase font-medium text-slate-500 dark:text-zinc-400 block">Estabelecimento</span>
+                  <div className="font-semibold text-slate-900 dark:text-zinc-100 mt-0.5">
+                    {selectedLog.barbearia_nome || 'Global / Plataforma'}
                   </div>
-                  <span className="text-[11px] text-zinc-500 font-mono">
+                  <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">
                     ID: {selectedLog.barbearia_id || 'null'}
                   </span>
                 </div>
 
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-zinc-500 block">Estado de Resolução</span>
-                  <div className="mt-1 flex items-center gap-2">
+                  <span className="text-[10px] uppercase font-medium text-slate-500 dark:text-zinc-400 block">Status</span>
+                  <div className="mt-1">
                     {selectedLog.resolvido ? (
-                      <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
-                        <Check className="w-3.5 h-3.5" weight="bold" />
+                      <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40 inline-flex items-center gap-1">
+                        <Check className="w-3 h-3" />
                         <span>Resolvido por {selectedLog.resolvido_por || 'superadmin'}</span>
                       </span>
                     ) : (
-                      <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-red-500/15 text-red-400 border border-red-500/30 flex items-center gap-1.5">
-                        <WarningOctagon className="w-3.5 h-3.5" weight="bold" />
-                        <span>Incidente Aberto / Requer Análise</span>
+                      <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/40 inline-flex items-center gap-1">
+                        <WarningOctagon className="w-3 h-3" />
+                        <span>Aberto</span>
                       </span>
                     )}
                   </div>
@@ -773,32 +631,11 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
 
               {/* Mensagem de Erro Principal */}
               <div className="space-y-1">
-                <span className="text-[10px] uppercase font-bold text-zinc-500">Mensagem do Erro</span>
-                <div className="p-3 rounded-xl bg-red-950/20 border border-red-500/30 text-red-200 font-medium">
+                <span className="text-[10px] uppercase font-medium text-slate-500 dark:text-zinc-400">Mensagem do Erro</span>
+                <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 dark:bg-rose-950/20 dark:border-rose-800/40 text-rose-800 dark:text-rose-300 font-medium">
                   {selectedLog.mensagem_erro}
                 </div>
               </div>
-
-              {/* Informações de Ambiente / Cliente */}
-              {typeof selectedLog.detalhes_tecnicos === 'object' && selectedLog.detalhes_tecnicos?.ambiente && (
-                <div className="space-y-1">
-                  <span className="text-[10px] uppercase font-bold text-zinc-500">Informações de Ambiente</span>
-                  <div className="p-3 rounded-xl bg-black/50 border border-white/5 space-y-1.5 text-zinc-300 font-mono text-[11px]">
-                    <div>
-                      <strong className="text-zinc-500">URL: </strong>
-                      <span className="text-[#D4AF37]">{selectedLog.detalhes_tecnicos.ambiente.url}</span>
-                    </div>
-                    <div>
-                      <strong className="text-zinc-500">Dispositivo: </strong>
-                      <span>{selectedLog.detalhes_tecnicos.ambiente.dispositivo} ({selectedLog.detalhes_tecnicos.ambiente.screenSize || 'N/A'})</span>
-                    </div>
-                    <div className="truncate">
-                      <strong className="text-zinc-500">User Agent: </strong>
-                      <span className="text-zinc-400">{selectedLog.detalhes_tecnicos.ambiente.userAgent}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Stack Trace Técnico */}
               {typeof selectedLog.detalhes_tecnicos === 'object' &&
@@ -807,33 +644,33 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
                 selectedLog.detalhes_tecnicos.stackTrace && (() => {
                   const stack = (selectedLog.detalhes_tecnicos as SystemErrorTechnicalDetails).stackTrace || '';
                   return (
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] uppercase font-bold text-zinc-500">
+                        <span className="text-[10px] uppercase font-medium text-slate-500 dark:text-zinc-400">
                           Stack Trace Técnico
                         </span>
                         <button
                           onClick={() => handleCopyStack(stack)}
-                          className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-[10px] font-semibold flex items-center gap-1 transition cursor-pointer"
+                          className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 text-[10px] font-medium flex items-center gap-1 transition cursor-pointer"
                         >
-                          {copiedStack ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                          <span>{copiedStack ? 'Copiado!' : 'Copiar Stack'}</span>
+                          {copiedStack ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                          <span>{copiedStack ? 'Copiado!' : 'Copiar'}</span>
                         </button>
                       </div>
-                      <pre className="p-3 rounded-xl bg-black border border-white/10 text-red-300/90 font-mono text-[11px] overflow-x-auto whitespace-pre leading-relaxed max-h-48">
+                      <pre className="p-3 rounded-lg bg-slate-900 text-rose-300 font-mono text-[11px] overflow-x-auto whitespace-pre leading-relaxed max-h-48">
                         {stack}
                       </pre>
                     </div>
                   );
                 })()}
 
-              {/* Payload da Requisição / Endpoint se disponível */}
+              {/* Detalhes de Requisição / Endpoint */}
               {typeof selectedLog.detalhes_tecnicos === 'object' && (selectedLog.detalhes_tecnicos?.endpoint || selectedLog.detalhes_tecnicos?.requestPayload) && (
-                <div className="space-y-1.5">
-                  <span className="text-[10px] uppercase font-bold text-zinc-500">
-                    Detalhes da Requisição & Endpoint
+                <div className="space-y-1">
+                  <span className="text-[10px] uppercase font-medium text-slate-500 dark:text-zinc-400">
+                    Detalhes da Requisição
                   </span>
-                  <pre className="p-3 rounded-xl bg-black border border-white/10 text-emerald-300 font-mono text-[11px] overflow-x-auto whitespace-pre max-h-40">
+                  <pre className="p-3 rounded-lg bg-slate-900 text-emerald-400 font-mono text-[11px] overflow-x-auto whitespace-pre max-h-40">
                     {JSON.stringify(
                       {
                         endpoint: selectedLog.detalhes_tecnicos?.endpoint,
@@ -848,48 +685,25 @@ export const SystemDiagnosticsManager: React.FC<SystemDiagnosticsManagerProps> =
                   </pre>
                 </div>
               )}
-
-              {/* Notas de Suporte */}
-              {selectedLog.notas_suporte && (
-                <div className="p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/30 text-emerald-300">
-                  <strong className="block text-[10px] uppercase font-bold">Nota de Resolução:</strong>
-                  <p className="mt-0.5">{selectedLog.notas_suporte}</p>
-                </div>
-              )}
             </div>
 
-            {/* Rodapé de Ações do Modal */}
-            <div className="p-4 border-t border-white/10 bg-[#18181B] flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleToggleResolve(selectedLog.id)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-                    selectedLog.resolvido
-                      ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
-                      : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20'
-                  }`}
-                >
-                  <Check className="w-4 h-4" weight="bold" />
-                  <span>{selectedLog.resolvido ? 'Reabrir Incidente' : 'Marcar como Resolvido'}</span>
-                </button>
-
-                {selectedLog.barbearia_id && (
-                  <button
-                    onClick={() => {
-                      onSelectTenant(selectedLog.barbearia_id!);
-                      onNavigateTenantAdmin(selectedLog.barbearia_id!);
-                    }}
-                    className="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-300 hover:text-amber-200 border border-amber-500/30 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
-                  >
-                    <ArrowSquareOut className="w-4 h-4" />
-                    <span>Ver Painel da Barbearia</span>
-                  </button>
-                )}
-              </div>
+            {/* Rodapé do Modal */}
+            <div className="p-3.5 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/60 flex items-center justify-between gap-2">
+              <button
+                onClick={() => handleToggleResolve(selectedLog.id)}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                  selectedLog.resolvido
+                    ? 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 dark:border-zinc-700'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{selectedLog.resolvido ? 'Reabrir Incidente' : 'Marcar como Resolvido'}</span>
+              </button>
 
               <button
                 onClick={() => setSelectedLog(null)}
-                className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold transition cursor-pointer"
+                className="px-3.5 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 text-xs font-medium transition cursor-pointer"
               >
                 Fechar
               </button>

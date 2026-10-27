@@ -28,6 +28,7 @@ import {
   TenantConfig,
 } from '../../types';
 import { formatCurrency, formatDatePtBR } from '../../utils/formatters';
+import { DigitalReceiptModal } from '../Shared/DigitalReceiptModal';
 
 interface InvoiceNinjaManagerProps {
   tenants: TenantConfig[];
@@ -57,6 +58,7 @@ export const InvoiceNinjaManager: React.FC<InvoiceNinjaManagerProps> = ({
   onClearLogs,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'invoices' | 'simulator' | 'logs' | 'settings'>('invoices');
+  const [selectedReceiptInvoice, setSelectedReceiptInvoice] = useState<Invoice | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | InvoiceStatus>('all');
   const [tenantFilter, setTenantFilter] = useState<string>('all');
 
@@ -341,7 +343,7 @@ export const InvoiceNinjaManager: React.FC<InvoiceNinjaManagerProps> = ({
                                 onClick={() => {
                                   onTriggerWebhook({
                                     eventType: 'invoice.paid',
-                                    tenantId: inv.tenantId,
+                                    tenantId: inv.tenantId || "",
                                     invoiceId: inv.id,
                                     amount: inv.amount,
                                   });
@@ -354,20 +356,30 @@ export const InvoiceNinjaManager: React.FC<InvoiceNinjaManagerProps> = ({
                             )}
 
                             {isPaid && (
-                              <button
-                                onClick={() => {
-                                  onTriggerWebhook({
-                                    eventType: 'invoice.past_due',
-                                    tenantId: inv.tenantId,
-                                    invoiceId: inv.id,
-                                    amount: inv.amount,
-                                  });
-                                }}
-                                className="h-7 px-2.5 rounded-lg bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white font-bold text-[10px] transition cursor-pointer"
-                                title="Simula atraso de fatura e aciona o Kill Switch"
-                              >
-                                Forçar Inadimplência
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => setSelectedReceiptInvoice(inv)}
+                                  className="h-7 px-2.5 rounded-lg bg-[#D4AF37]/20 hover:bg-[#D4AF37] text-[#D4AF37] hover:text-black font-bold text-[10px] flex items-center gap-1 transition cursor-pointer shadow-sm"
+                                  title="Ver Recibo Oficial de Quitação Digital"
+                                >
+                                  <Receipt className="w-3.5 h-3.5" />
+                                  <span>Ver Recibo</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    onTriggerWebhook({
+                                      eventType: 'invoice.past_due',
+                                      tenantId: inv.tenantId || "",
+                                      invoiceId: inv.id,
+                                      amount: inv.amount,
+                                    });
+                                  }}
+                                  className="h-7 px-2.5 rounded-lg bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white font-bold text-[10px] transition cursor-pointer"
+                                  title="Simula atraso de fatura e aciona o Kill Switch"
+                                >
+                                  Forçar Inadimplência
+                                </button>
+                              </>
                             )}
                           </div>
                         </td>
@@ -715,6 +727,13 @@ export const InvoiceNinjaManager: React.FC<InvoiceNinjaManagerProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {selectedReceiptInvoice && (
+        <DigitalReceiptModal
+          invoice={selectedReceiptInvoice}
+          tenant={tenants.find((t) => t.id === selectedReceiptInvoice.tenantId)}
+          onClose={() => setSelectedReceiptInvoice(null)}
+        />
       )}
     </div>
   );

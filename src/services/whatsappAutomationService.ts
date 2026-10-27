@@ -60,6 +60,15 @@ export async function getWhatsAppTemplates(barbeariaId: string): Promise<WhatsAp
       },
       {
         barbearia_id: barbeariaId,
+        tipo_evento: 'pos_corte',
+        conteudo:
+          'Opa {nome_cliente}, e aí, tudo bem? 💈✂️\n\nPassando pra agradecer a preferência hoje no seu {servico} com {barbeiro}! Espero que tenha gostado do resultado.\n\nQuando precisar dar aquele talento no visual de novo, estamos aí de volta! Tamo junto! 🤝',
+        delay_segundos: 35,
+        simular_digitando: true,
+        ativo: true,
+      },
+      {
+        barbearia_id: barbeariaId,
         tipo_evento: 'reativacao_cliente',
         conteudo:
           'Fala {nome_cliente}, sumido! 💈 Já faz um tempo desde o seu último corte com {barbeiro}.\n\nQue tal dar aquele talento no visual essa semana?\n\n{beneficio_clube}\n\nResponda essa mensagem para agendar o seu horário!',
@@ -174,5 +183,94 @@ export async function getWhatsAppDispatchHistory(barbeariaId: string): Promise<W
   } catch (err) {
     console.warn('[WhatsAppAutomation] Falha ao carregar histórico:', err);
     return [];
+  }
+}
+
+/**
+ * Agenda automaticamente a mensagem Pós-Corte (30 minutos após o barbeiro finalizar o atendimento)
+ */
+export async function schedulePostCutWhatsAppMessage(params: {
+  barbearia_id: string;
+  agendamento_id?: string;
+  cliente_nome: string;
+  cliente_telefone: string;
+  barbeiro_nome: string;
+  servico_nome: string;
+  horario?: string;
+  data?: string;
+  delay_minutos?: number;
+}): Promise<{ success: boolean; message?: string; scheduledFor?: string }> {
+  try {
+    const base = getApiBaseUrl();
+    const res = await fetch(`${base}/api/barbearia/whatsapp/post-cut`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...params,
+        delay_minutos: params.delay_minutos ?? 30,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return {
+        success: false,
+        message: data?.error || `Falha ao agendar pós-corte (HTTP ${res.status})`,
+      };
+    }
+
+    return {
+      success: Boolean(data?.success),
+      message: data?.message,
+      scheduledFor: data?.scheduledFor,
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn('[WhatsAppAutomation] Erro ao agendar mensagem pós-corte:', msg);
+    return {
+      success: false,
+      message: msg,
+    };
+  }
+}
+
+/**
+ * Dispara a Confirmação de Agendamento via Evolution API (com motor Anti-Ban e agendamento do Lembrete de 2h)
+ */
+export async function sendBookingConfirmationWhatsApp(params: {
+  barbearia_id: string;
+  barbearia_nome?: string;
+  agendamento_id: string;
+  cliente_nome: string;
+  cliente_telefone: string;
+  barbeiro_nome: string;
+  servico_nome: string;
+  data: string;
+  horario: string;
+  beneficio_clube?: string;
+}): Promise<{ success: boolean; message?: string }> {
+  try {
+    const base = getApiBaseUrl();
+    const res = await fetch(`${base}/api/barbearia/whatsapp/booking-created`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params),
+    });
+    const data = await res.json().catch(() => ({}));
+    return {
+      success: Boolean(data?.success),
+      message: data?.message,
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn('[WhatsAppAutomation] Erro ao disparar confirmação:', msg);
+    return {
+      success: false,
+      message: msg,
+    };
   }
 }

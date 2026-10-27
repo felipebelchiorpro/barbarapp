@@ -17,6 +17,7 @@ import {
 import { checkPocketBaseHealth } from '../../services/pocketbase';
 import { EstablishmentFormModal } from './EstablishmentFormModal';
 import { EditTenantPlanModal } from './EditTenantPlanModal';
+import { GenerateInvoiceModal } from './GenerateInvoiceModal';
 import { SuperAdminBiDashboard } from './SuperAdminBiDashboard';
 
 interface SuperAdminDashboardProps {
@@ -30,6 +31,7 @@ interface SuperAdminDashboardProps {
   onSelectTenant: (tenantId: string) => void;
   onUpdateTenant: (updatedTenant: TenantConfig) => void;
   onAddTenant: (newTenant: TenantConfig) => void;
+  onGenerateInvoice?: (tenant: TenantConfig, amount: number, dueDate: string, description: string) => void;
   onNavigateView: (view: 'client' | 'admin') => void;
   onUpdateInvoiceNinjaConfig?: (cfg: InvoiceNinjaConfig) => void;
   onUpdateCrmConfig?: (cfg: CrmWebhookConfig) => void;
@@ -53,12 +55,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   onSelectTenant,
   onUpdateTenant,
   onAddTenant,
+  onGenerateInvoice,
   onNavigateView,
 }) => {
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [isPocketBaseOnline, setIsPocketBaseOnline] = useState<boolean | null>(null);
   const [editingPlanTenant, setEditingPlanTenant] = useState<TenantConfig | null>(null);
   const [editingEstablishmentTenant, setEditingEstablishmentTenant] = useState<TenantConfig | null>(null);
+  const [generatingInvoiceTenant, setGeneratingInvoiceTenant] = useState<TenantConfig | null>(null);
 
   // Check PocketBase health periodically
   useEffect(() => {
@@ -84,6 +88,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         onNavigateView={onNavigateView}
         onEditTenantPlan={(tenant) => setEditingPlanTenant(tenant)}
         onEditEstablishment={(tenant) => setEditingEstablishmentTenant(tenant)}
+        onOpenGenerateInvoice={(tenant) => setGeneratingInvoiceTenant(tenant)}
         invoices={invoices}
         plans={plans}
         invoiceNinjaConfig={invoiceNinjaConfig}
@@ -128,6 +133,21 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             onUpdateTenant(updatedTenant);
             setEditingPlanTenant(null);
           }}
+        />
+      )}
+
+      {/* Modal Gerar Fatura para a Barbearia */}
+      {generatingInvoiceTenant && (
+        <GenerateInvoiceModal
+          tenant={generatingInvoiceTenant}
+          isOpen={true}
+          onClose={() => setGeneratingInvoiceTenant(null)}
+          onGenerate={(t, amt, due, desc) => {
+            if (onGenerateInvoice) {
+              onGenerateInvoice(t, amt, due, desc);
+            }
+          }}
+          existingInvoices={invoices}
         />
       )}
     </div>

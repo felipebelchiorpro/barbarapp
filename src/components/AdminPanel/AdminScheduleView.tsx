@@ -96,7 +96,7 @@ interface AdminScheduleViewProps {
   onAddCashTransaction?: (tx: Omit<CashTransaction, 'id' | 'timestamp'>) => void;
   onSelectDate: (date: string) => void;
   onUpdateStatus: (bookingId: string, status: BookingStatus) => void;
-  onOpenBlockModal: () => void;
+  onOpenBlockModal: (barberId?: string) => void;
   onUpdateEvolutionConfig: (config: EvolutionApiConfig) => void;
   onAddBarber: (newBarber: Omit<Barber, 'id'>) => boolean;
   onUpdateBarber: (barber: Barber) => void;
@@ -402,7 +402,7 @@ export const AdminScheduleView: React.FC<AdminScheduleViewProps> = ({
               {/* Action Controls */}
               <div className="flex items-center gap-2">
                 <button
-                  onClick={onOpenBlockModal}
+                  onClick={() => onOpenBlockModal()}
                   className="h-10 px-4 rounded-xl bg-gradient-to-r from-amber-500/20 to-amber-500/10 border border-amber-500/30 text-[#D4AF37] hover:bg-amber-500/20 text-xs font-semibold flex items-center gap-2 transition cursor-pointer active:scale-95 shadow-sm"
                 >
                   <Lock className="w-4.5 h-4.5" weight="regular" />
@@ -577,7 +577,7 @@ export const AdminScheduleView: React.FC<AdminScheduleViewProps> = ({
                 </span>
               </div>
               <button
-                onClick={onOpenBlockModal}
+                onClick={() => onOpenBlockModal()}
                 className="text-[11px] text-[#D4AF37] underline font-semibold hover:text-amber-200"
               >
                 Gerenciar
@@ -897,7 +897,7 @@ export const AdminScheduleView: React.FC<AdminScheduleViewProps> = ({
                               </div>
                             ) : (
                               <button
-                                onClick={onOpenBlockModal}
+                                onClick={() => onOpenBlockModal()}
                                 className="w-full h-full rounded-xl hover:bg-white/5 text-zinc-700 hover:text-zinc-400 flex items-center justify-center transition text-xs group"
                                 title="Horário livre - clique para bloquear se necessário"
                               >
@@ -983,6 +983,7 @@ export const AdminScheduleView: React.FC<AdminScheduleViewProps> = ({
           onDeleteBarber={onDeleteBarber}
           onToggleActive={onToggleBarberActive}
           onUpdateTenantConfig={onUpdateTenantConfig}
+          onOpenBlockModal={onOpenBlockModal}
         />
       )}
 

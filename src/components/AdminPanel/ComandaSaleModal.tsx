@@ -132,8 +132,9 @@ export const ComandaSaleModal: React.FC<ComandaSaleModalProps> = ({
   const [selectedProducts, setSelectedProducts] = useState<ComandaProductItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>('');
 
-  // 5. Forma de Pagamento
+  // 5. Forma de Pagamento & Calculadora de Troco
   const [paymentMethod, setPaymentMethod] = useState<CashPaymentMethod>('pix');
+  const [cashReceived, setCashReceived] = useState<string>('');
 
   // Filtro inteligente de clientes por nome ou telefone
   const filteredCustomers = useMemo(() => {
@@ -378,6 +379,9 @@ export const ComandaSaleModal: React.FC<ComandaSaleModalProps> = ({
     if (isVipAttendance) parts.push(`Membro VIP: ${clientPlan?.nome}`);
     const fullDescription = `Comanda Balcão (${clientName}): ${parts.join(' + ')}`;
 
+    const receivedNum = paymentMethod === 'cash' ? (parseFloat(cashReceived.replace(',', '.')) || totalComanda) : totalComanda;
+    const changeNum = paymentMethod === 'cash' ? Math.max(0, receivedNum - totalComanda) : 0;
+
     const transaction: Omit<CashTransaction, 'id' | 'timestamp'> = {
       tenantId,
       description: fullDescription,
@@ -401,6 +405,8 @@ export const ComandaSaleModal: React.FC<ComandaSaleModalProps> = ({
       produtos: selectedProducts,
       valor_total: totalComanda,
       forma_pagamento: paymentMethod,
+      valor_recebido: receivedNum,
+      troco: changeNum,
       data_hora: new Date().toISOString(),
     };
 
@@ -1045,6 +1051,131 @@ export const ComandaSaleModal: React.FC<ComandaSaleModalProps> = ({
                 );
               })}
             </div>
+
+            {/* CALCULADORA DE TROCO EM DINHEIRO */}
+            {paymentMethod === 'cash' && (
+              <div className="mt-3 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-zinc-900/90 to-zinc-900 border border-amber-500/30 space-y-3 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                    💵 Calculadora de Troco (Dinheiro)
+                  </span>
+                  <span className="text-[11px] text-zinc-400 font-mono">
+                    Total a Pagar: <strong className="text-white text-xs">{formatCurrency(totalComanda)}</strong>
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-zinc-300 block mb-1">
+                    Valor Recebido do Cliente:
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-amber-400 font-mono">
+                      R$
+                    </span>
+                    <input
+                      type="text"
+                      value={cashReceived}
+                      onChange={(e) => setCashReceived(e.target.value)}
+                      placeholder={totalComanda > 0 ? totalComanda.toFixed(2).replace('.', ',') : '0,00'}
+                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-black/60 border border-amber-500/40 text-white font-mono font-extrabold text-base focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50"
+                    />
+                  </div>
+                </div>
+
+                {/* Botões de Atalhos Rápidos */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">Atalhos:</span>
+                  <button
+                    type="button"
+                    onClick={() => setCashReceived(totalComanda.toFixed(2).replace('.', ','))}
+                    className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-bold border border-white/10 transition active:scale-95 cursor-pointer"
+                  >
+                    Valor Exato
+                  </button>
+                  {[20, 50, 100, 200].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setCashReceived(val.toFixed(2).replace('.', ','))}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition active:scale-95 cursor-pointer ${
+                        parseFloat(cashReceived.replace(',', '.')) === val
+                          ? 'bg-amber-500 text-black border-amber-400'
+                          : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-white/10'
+                      }`}
+                    >
+                      R$ {val}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const current = parseFloat(cashReceived.replace(',', '.')) || 0;
+                      setCashReceived((current + 10).toFixed(2).replace('.', ','));
+                    }}
+                    className="px-2 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold hover:bg-amber-500/30 cursor-pointer"
+                  >
+                    + R$ 10
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const current = parseFloat(cashReceived.replace(',', '.')) || 0;
+                      setCashReceived((current + 20).toFixed(2).replace('.', ','));
+                    }}
+                    className="px-2 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold hover:bg-amber-500/30 cursor-pointer"
+                  >
+                    + R$ 20
+                  </button>
+                </div>
+
+                {/* Painel de Troco com Alto Contraste */}
+                {(() => {
+                  const receivedVal = parseFloat(cashReceived.replace(',', '.')) || 0;
+                  const trocoVal = receivedVal - totalComanda;
+
+                  if (receivedVal <= 0) {
+                    return (
+                      <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 text-center text-xs text-zinc-400">
+                        Digite o valor entregue pelo cliente ou clique nos atalhos para apurar o troco.
+                      </div>
+                    );
+                  }
+
+                  if (trocoVal >= 0) {
+                    return (
+                      <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-between gap-3 animate-in fade-in">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-2xl">💰</span>
+                          <div>
+                            <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400 block">
+                              Troco a Devolver
+                            </span>
+                            <span className="text-xs text-emerald-300 font-medium">
+                              {trocoVal === 0 ? 'Sem troco (valor exato)' : `Entregar ${formatCurrency(trocoVal)} ao cliente`}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 tabular-nums">
+                          {formatCurrency(trocoVal)}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 flex items-center justify-between text-xs text-rose-300">
+                      <div className="flex items-center gap-2 font-medium">
+                        <span>⚠️</span>
+                        <span>Valor em dinheiro insuficiente</span>
+                      </div>
+                      <span className="font-bold font-mono text-sm">
+                        Faltam {formatCurrency(Math.abs(trocoVal))}
+                      </span>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </div>
         </form>
 

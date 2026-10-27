@@ -74,14 +74,29 @@ export function addMinutesToTime(startTime: string, minutesToAdd: number): strin
 
 export function formatDatePtBR(dateStr: string): string {
   if (!dateStr) return '';
-  const [year, month, day] = dateStr.split('-').map(Number);
-  const date = new Date(year, month - 1, day);
-  
-  return date.toLocaleDateString('pt-BR', {
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-  });
+  try {
+    if (dateStr.includes('T')) {
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString('pt-BR', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+        });
+      }
+    }
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    if (isNaN(date.getTime())) return dateStr;
+    
+    return date.toLocaleDateString('pt-BR', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    });
+  } catch (_) {
+    return dateStr;
+  }
 }
 
 export function formatFullDatePtBR(dateStr: string): string {

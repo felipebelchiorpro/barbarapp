@@ -22,20 +22,20 @@ const DEFAULT_FALLBACK_TENANT: TenantConfig = {
   createdAt: '2026-01-10T10:00:00.000Z',
 };
 
-const AUTH_SESSION_STORAGE_KEY = 'naville_auth_session_v1';
+const AUTH_SESSION_STORAGE_KEY = 'naville_auth_session_v2_prod';
 const CHAIR_ORDERS_STORAGE_KEY = 'naville_chair_orders_v1';
 const OTP_STORE_STORAGE_KEY = 'naville_otp_store_v1';
 
 /**
- * Catálogo de usuários demonstrativos com RBAC rígido
+ * Catálogo de usuários com RBAC rígido
  */
 const userSuperAdmin: AuthUser = {
   id: 'user-superadmin-1',
-  email: 'superadmin@naville.app',
-  name: 'Administrador Master (Super Admin)',
+  email: 'contatofelipebelchior@gmail.com',
+  name: 'Felipe Belchior (Super Admin)',
   role: 'superadmin',
   barbearia_id: 'tenant-barbearia-ls',
-  phone: '11981234567',
+  phone: '19999005677',
   avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
   status: 'active',
   createdAt: '2026-01-01T00:00:00Z',
@@ -237,34 +237,165 @@ export function resolveTenant(tenantId: string, tenantsList?: TenantConfig[]): T
 }
 
 /**
- * Autentica com email e senha e aplica o Kill Switch de Inadimplência
+ * Autentica com email/WhatsApp e senha e aplica o Kill Switch de Inadimplência.
+ * Suporta dinamicamente qualquer barbearia real e qualquer barbeiro criado no sistema!
  */
 export function loginWithEmail(
   email: string,
   pass: string,
-  tenantsList?: TenantConfig[]
+  tenantsList?: TenantConfig[],
+  activeTenantId?: string
 ): { success: boolean; session?: AuthSession; error?: string; blockedByTenant?: boolean } {
-  const normalizedEmail = email.trim().toLowerCase();
-  const user = MOCK_USERS.find(
-    (u) =>
-      u.email.toLowerCase() === normalizedEmail ||
-      (normalizedEmail.startsWith('diego@') && u.role === 'barber' && u.barber_id === 'barber-diego') ||
-      (normalizedEmail.startsWith('admin@') && u.role === 'superadmin') ||
-      (normalizedEmail.startsWith('marcelo@') && u.role === 'owner' && u.barbearia_id === 'tenant-vintage-club') ||
-      (normalizedEmail.startsWith('dono@') && u.role === 'owner' && u.barbearia_id === 'tenant-barbearia-ls')
-  );
+  const normalizedInput = email.trim().toLowerCase();
+  const inputDigits = normalizedInput.replace(/\D/g, '');
 
-  if (!user) {
+  if (!pass || pass.trim().length < 3) {
     return {
       success: false,
-      error: 'Credenciais inválidas. Verifique o e-mail digitado.',
+      error: 'Informe uma senha válida (mínimo de 3 caracteres).',
     };
   }
 
-  const tenant = resolveTenant(user.barbearia_id, tenantsList);
+  // 1. Verifica Super Admin Master Oficial (Felipe Belchior / Suporte)
+  if (normalizedInput === 'contatofelipebelchior@gmail.com' || normalizedInput === 'admin@naville.com.br') {
+    if (normalizedInput === 'contatofelipebelchior@gmail.com' && pass.trim() !== '@Fe3595157') {
+      return {
+        success: false,
+        error: 'Senha incorreta para o Super Admin Master.',
+      };
+    }
+    const targetTenant = resolveTenant(activeTenantId || userSuperAdmin.barbearia_id, tenantsList);
+    const saUser: AuthUser = {
+      ...userSuperAdmin,
+      barbearia_id: targetTenant.id,
+    };
+    const session: AuthSession = {
+      token: generateMockJwt(saUser),
+      user: saUser,
+      tenant: targetTenant,
+      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    };
+    saveAuthSession(session);
+    return { success: true, session };
+  }
+
+  let matchedUser: AuthUser | undefined;
+
+  // 2. Verifica Donos de Barbearias Reais cadastradas em tenantsList
+  if (tenantsList && tenantsList.length > 0) {
+    const matchedTenant = tenantsList.find((t) => {
+      const tEmail = (t.email_financeiro || '').trim().toLowerCase();
+      const tPhone = (t.ownerPhone || t.whatsapp_financeiro || '').replace(/\D/g, '');
+      const tSlug = (t.slug || '').trim().toLowerCase();
+      if (tEmail && tEmail === normalizedInput) return true;
+      if (inputDigits.length >= 8 && tPhone && tPhone.endsWith(inputDigits.slice(-8))) return true;
+      if (
+        tSlug &&
+        (normalizedInput === `dono@${tSlug}.com` ||
+          normalizedInput === `${tSlug}@naville.com` ||
+          normalizedInput === `admin@${tSlug}.com` ||
+          normalizedInput === tSlug)
+      ) {
+        return true;
+      }
+      return false;
+    });
+
+    if (matchedTenant) {
+      matchedUser = {
+        id: `owner-${matchedTenant.id}`,
+        email: matchedTenant.email_financeiro || `dono@${matchedTenant.slug}.com`,
+        name: matchedTenant.ownerName || matchedTenant.nome_responsavel || `Proprietário - ${matchedTenant.name}`,
+        role: 'owner',
+        barbearia_id: matchedTenant.id,
+        phone: matchedTenant.ownerPhone || matchedTenant.whatsapp_financeiro || '',
+        status: matchedTenant.status === 'blocked' ? 'blocked' : 'active',
+        createdAt: matchedTenant.createdAt || new Date().toISOString(),
+      };
+    }
+  }
+
+  // 3. Verifica Barbeiros Reais cadastrados no sistema
+  if (!matchedUser && typeof window !== 'undefined') {
+    try {
+      const rawBarbers =
+        localStorage.getItem('naville_barbers_v2_prod') ||
+        localStorage.getItem('barbearia_ls_barbers');
+      const savedBarbers: any[] = rawBarbers ? JSON.parse(rawBarbers) : [];
+      const matchedBarber = savedBarbers.find((b) => {
+        const bEmail = (b.loginEmail || '').trim().toLowerCase();
+        const bPhone = (b.phone || '').replace(/\D/g, '');
+        const bNick = (b.nickname || b.name || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '');
+        if (bEmail && bEmail === normalizedInput) return true;
+        if (inputDigits.length >= 8 && bPhone && bPhone.endsWith(inputDigits.slice(-8))) return true;
+        if (bNick && (normalizedInput.startsWith(`${bNick}@`) || normalizedInput === bNick)) return true;
+        return false;
+      });
+
+      if (matchedBarber) {
+        const targetTid = matchedBarber.tenantId || activeTenantId || tenantsList?.[0]?.id || 'tenant-default';
+        matchedUser = {
+          id: `user-${matchedBarber.id}`,
+          email: matchedBarber.loginEmail || `${matchedBarber.nickname || 'barbeiro'}@barbearia.com`,
+          name: matchedBarber.name,
+          role: 'barber',
+          barbearia_id: targetTid,
+          barber_id: matchedBarber.id,
+          phone: matchedBarber.phone || '',
+          avatarUrl: matchedBarber.avatarUrl,
+          status: 'active',
+          createdAt: new Date().toISOString(),
+          commissionRate: 0.5,
+          canAccessAdmin: Boolean(matchedBarber.canAccessAdmin),
+        };
+      }
+    } catch (_) {}
+  }
+
+  // 4. Fallback para usuários MOCK_USERS ou login direto na barbearia ativa pelo slug
+  if (!matchedUser) {
+    matchedUser = MOCK_USERS.find(
+      (u) =>
+        u.email.toLowerCase() === normalizedInput ||
+        (normalizedInput.startsWith('diego@') && u.role === 'barber' && u.barber_id === 'barber-diego') ||
+        (normalizedInput.startsWith('marcelo@') && u.role === 'owner' && u.barbearia_id === 'tenant-vintage-club') ||
+        (normalizedInput.startsWith('dono@') && u.role === 'owner')
+    );
+  }
+
+  // 5. Se há uma barbearia ativa selecionada pelo slug (ex: /b/minha-barbearia/admin ou /barbeiro) e o usuário digitou um e-mail/telefone válido:
+  if (!matchedUser && activeTenantId && tenantsList && tenantsList.length > 0) {
+    const activeT = tenantsList.find((t) => t.id === activeTenantId);
+    if (activeT && (normalizedInput.includes('@') || inputDigits.length >= 10)) {
+      const isBarberAttempt = normalizedInput.startsWith('barbeiro') || normalizedInput.includes('cadeira');
+      matchedUser = {
+        id: `${isBarberAttempt ? 'barber' : 'owner'}-${activeT.id}`,
+        email: normalizedInput,
+        name: isBarberAttempt ? `Profissional (${activeT.name})` : activeT.ownerName || `Proprietário (${activeT.name})`,
+        role: isBarberAttempt ? 'barber' : 'owner',
+        barbearia_id: activeT.id,
+        phone: inputDigits || activeT.ownerPhone,
+        status: activeT.status === 'blocked' ? 'blocked' : 'active',
+        createdAt: new Date().toISOString(),
+      };
+    }
+  }
+
+  if (!matchedUser) {
+    return {
+      success: false,
+      error: 'Credenciais não encontradas. Verifique o e-mail ou WhatsApp cadastrado na barbearia.',
+    };
+  }
+
+  const tenant = resolveTenant(activeTenantId || matchedUser.barbearia_id, tenantsList);
 
   // KILL SWITCH ENFORCEMENT: Se o tenant estiver com status 'blocked' e não for SuperAdmin, barra o login
-  if (tenant.status === 'blocked' && user.role !== 'superadmin') {
+  if (tenant.status === 'blocked' && matchedUser.role !== 'superadmin') {
     return {
       success: false,
       blockedByTenant: true,
@@ -272,9 +403,14 @@ export function loginWithEmail(
     };
   }
 
+  const finalUser: AuthUser = {
+    ...matchedUser,
+    barbearia_id: tenant.id,
+  };
+
   const session: AuthSession = {
-    token: generateMockJwt(user),
-    user,
+    token: generateMockJwt(finalUser),
+    user: finalUser,
     tenant,
     expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
   };

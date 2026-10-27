@@ -24,6 +24,8 @@ interface QuickTimeBlockModalProps {
   selectedDate: string;
   tenantPlan?: string;
   maxBarbers?: number;
+  initialBarberId?: string;
+  initialTab?: 'lunch' | 'manual';
   onClose: () => void;
   onAddBlock: (block: Omit<TimeBlock, 'id' | 'createdAt'>) => void;
   onAddBlocks?: (blocks: Array<Omit<TimeBlock, 'id' | 'createdAt'>>) => void;
@@ -36,16 +38,20 @@ export const QuickTimeBlockModal: React.FC<QuickTimeBlockModalProps> = ({
   selectedDate,
   tenantPlan,
   maxBarbers,
+  initialBarberId,
+  initialTab,
   onClose,
   onAddBlock,
   onAddBlocks,
   onRemoveBlock,
 }) => {
   // Modal active tab: 'lunch' (Gerador de Almoço) or 'manual' (Bloqueio Avulso)
-  const [activeTab, setActiveTab] = useState<'lunch' | 'manual'>('lunch');
+  const [activeTab, setActiveTab] = useState<'lunch' | 'manual'>(
+    initialTab || (initialBarberId ? 'manual' : 'lunch')
+  );
 
   // Manual block state
-  const [barberId, setBarberId] = useState<string>('all');
+  const [barberId, setBarberId] = useState<string>(initialBarberId || 'all');
   const [date, setDate] = useState<string>(selectedDate);
   const [startTime, setStartTime] = useState<string>('12:00');
   const [endTime, setEndTime] = useState<string>('13:00');
@@ -53,10 +59,11 @@ export const QuickTimeBlockModal: React.FC<QuickTimeBlockModalProps> = ({
 
   const presetReasons = [
     'Intervalo de Almoço',
-    'Imprevisto Pessoal',
+    'Imprevisto Pessoal / Saída',
+    'Folga Programada',
+    'Consulta Médica',
     'Treinamento / Reunião',
     'Manutenção do Espaço',
-    'Folga Programada',
   ];
 
   // Lunch generator state

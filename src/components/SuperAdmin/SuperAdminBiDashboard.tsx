@@ -1,15 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   TrendUp,
-  TrendDown,
   CurrencyDollar,
   Storefront,
   UsersThree,
-  WarningOctagon,
-  CheckCircle,
-  XCircle,
-  WarningCircle,
-  Clock,
   ChartLineUp,
   ArrowRight,
   ArrowLeft,
@@ -19,32 +13,22 @@ import {
   Crown,
   ShieldCheck,
   CalendarBlank,
-  FileText,
   Bug,
   Plus,
   ArrowUpRight,
-  CreditCard,
   Receipt,
-  User,
-  GearSix,
-  Bell,
-  Sparkle,
-  LinkSimple,
-  DotsThreeVertical,
-  Check,
-  X,
-  Phone,
-  Database,
-  LockKey,
-  LockKeyOpen,
-  PencilSimple,
   Globe,
-  Buildings,
-  ChatCenteredDots,
   ToggleLeft,
   ToggleRight,
   Wallet,
   ChatDots,
+  Sun,
+  Moon,
+  LinkSimple,
+  LockKey,
+  LockKeyOpen,
+  Database,
+  ChatCenteredDots,
 } from '@phosphor-icons/react';
 import {
   TenantConfig,
@@ -58,14 +42,14 @@ import {
   CrmWebhookConfig,
 } from '../../types';
 import { formatCurrency, formatDatePtBR } from '../../utils/formatters';
+import { DEFAULT_TENANT_CONFIG } from '../../data/mockData';
+import { DigitalReceiptModal } from '../Shared/DigitalReceiptModal';
 import { WhatsAppIcon } from '../WhatsAppIcon';
 import {
   getUnresolvedSystemErrorsCount,
   getTenantRecentErrorsCount,
 } from '../../services/systemErrorLogService';
 import { getWhatsAppDispatchHistory } from '../../services/whatsappAutomationService';
-import { CrmWebhooksManager } from './CrmWebhooksManager';
-import { InvoiceNinjaManager } from './InvoiceNinjaManager';
 import { SystemDiagnosticsManager } from './SystemDiagnosticsManager';
 
 export type ControlTowerTab = 'overview' | 'tenants' | 'metrics' | 'evolution' | 'logs';
@@ -79,6 +63,7 @@ interface SuperAdminBiDashboardProps {
   onNavigateView?: (view: 'client' | 'admin') => void;
   onEditTenantPlan?: (tenant: TenantConfig) => void;
   onEditEstablishment?: (tenant: TenantConfig) => void;
+  onOpenGenerateInvoice?: (tenant: TenantConfig) => void;
   invoices?: Invoice[];
   plans?: SubscriptionPlan[];
   invoiceNinjaConfig?: InvoiceNinjaConfig;
@@ -95,14 +80,30 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
   onNewTenant,
   onNavigateView,
   onEditTenantPlan,
-  onEditEstablishment,
+  onOpenGenerateInvoice,
   invoices = [],
   plans = [],
-  invoiceNinjaConfig,
-  ninjaLogs = [],
-  crmConfig,
   isPocketBaseOnline = true,
 }) => {
+  // Gerenciamento de Tema Dual (Modo Claro vs Modo Escuro com suporte a .dark)
+  const [adminTheme, setAdminTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('naville_admin_theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+      return document.documentElement.classList.contains('dark') ? 'dark' : 'dark';
+    }
+    return 'dark';
+  });
+
+  useEffect(() => {
+    if (adminTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('naville_admin_theme', adminTheme);
+  }, [adminTheme]);
+
   // Navegação da Torre de Controle
   const [activeTab, setActiveTab] = useState<ControlTowerTab>('overview');
 
@@ -118,13 +119,14 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
   const [selectedPlanCard, setSelectedPlanCard] = useState<'starter' | 'pro' | 'enterprise'>('pro');
 
   // Ambiente e live polling
-  const [environment, setEnvironment] = useState<'production' | 'staging' | 'sandbox'>('production');
+  const [environment, setEnvironment] = useState<'production' | 'staging'>('production');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<string>(() => new Date().toLocaleTimeString('pt-BR'));
   const [unresolvedErrorsCount, setUnresolvedErrorsCount] = useState<number>(() => getUnresolvedSystemErrorsCount());
+  const [selectedReceiptInvoice, setSelectedReceiptInvoice] = useState<Invoice | null>(null);
 
   // Auditoria do tenant selecionado
-  const [recentDispatches, setRecentDispatches] = useState<any[]>([]);
+  const [, setRecentDispatches] = useState<any[]>([]);
 
   // Atualização reativa de erros
   useEffect(() => {
@@ -212,7 +214,6 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
     return tenants.map((t) => {
       const basePrice = t.planBasePrice || (t.plan === 'starter' ? 49.9 : t.plan === 'pro' ? 89.9 : 149.9);
       const extraSeats = Math.max(0, (t.limite_profissionais || t.max_barbeiros || 1) - 1);
-      // Se vitalício, isenção permanente de mensalidade SaaS da Naville (MRR = 0)
       const mrrContribution = t.is_vitalicio
         ? 0
         : t.status === 'blocked'
@@ -231,11 +232,11 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
       }
 
       return {
-        tenantId: t.id,
-        name: t.name,
-        slug: t.slug,
-        ownerName: t.ownerName,
-        ownerPhone: t.ownerPhone,
+        tenantId: t.id || 'tenant-ls',
+        name: t.name || 'Nova Barbearia',
+        slug: t.slug || 'barbearia',
+        ownerName: t.ownerName || t.nome_responsavel || 'Proprietário',
+        ownerPhone: t.ownerPhone || t.whatsapp_financeiro || '',
         city: t.cidade || 'São Paulo - SP',
         plan: t.plan || 'starter',
         cycle: t.plano_ciclo || 'mensal',
@@ -258,12 +259,13 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
   // Filtros aplicados na lista Master
   const filteredHealthRecords = useMemo(() => {
     return tenantHealthRecords.filter((r) => {
+      const q = (tableSearch || '').toLowerCase();
       const matchesSearch =
-        r.name.toLowerCase().includes(tableSearch.toLowerCase()) ||
-        r.ownerName.toLowerCase().includes(tableSearch.toLowerCase()) ||
-        r.city.toLowerCase().includes(tableSearch.toLowerCase()) ||
-        r.slug.toLowerCase().includes(tableSearch.toLowerCase()) ||
-        r.tenantId.toLowerCase().includes(tableSearch.toLowerCase());
+        (r.name || '').toLowerCase().includes(q) ||
+        (r.ownerName || '').toLowerCase().includes(q) ||
+        (r.city || '').toLowerCase().includes(q) ||
+        (r.slug || '').toLowerCase().includes(q) ||
+        (r.tenantId || '').toLowerCase().includes(q);
 
       const matchesStatus = tableStatusFilter === 'all' || r.status === tableStatusFilter;
       const matchesPlan = tablePlanFilter === 'all' || r.plan === tablePlanFilter;
@@ -288,7 +290,7 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
   }, [tenantHealthRecords, filteredHealthRecords, selectedTenantId]);
 
   const selectedRawTenant = useMemo(() => {
-    return tenants.find((t) => t.id === selectedRecord?.tenantId) || tenants[0];
+    return tenants.find((t) => t.id === selectedRecord?.tenantId) || tenants[0] || DEFAULT_TENANT_CONFIG;
   }, [tenants, selectedRecord]);
 
   // Contagem de filtros ativos
@@ -314,7 +316,7 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
   // Alternar Status (Kill Switch: Ativa <-> Bloqueada)
   const handleToggleBlock = () => {
     if (!selectedRawTenant || !onUpdateTenant) return;
-    const newStatus: TenantStatus = selectedRawTenant.status === 'blocked' ? 'active' : 'blocked';
+    const newStatus: TenantStatus = selectedRawTenant?.status === 'blocked' ? 'active' : 'blocked';
     onUpdateTenant({
       ...selectedRawTenant,
       status: newStatus,
@@ -398,48 +400,49 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
   };
 
   return (
-    <div className="w-full space-y-6 text-left font-sans bg-[#0C0C0E] text-[#F4F4F6] min-h-screen p-4 sm:p-6 lg:p-8">
+    <div className={`w-full min-h-screen text-left font-inter transition-colors duration-150 p-4 sm:p-6 lg:p-8 space-y-6 bg-[#F8FAFC] text-[#0F172A] dark:bg-[#09090B] dark:text-[#F4F4F5] ${adminTheme === 'dark' ? 'dark' : ''}`}>
       {/* ========================================================= */}
       {/* 1. TOP BAR EXECUTIVA ("NAVILLE CONTROL TOWER")            */}
       {/* ========================================================= */}
-      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-[#141418] border border-[#262630] shadow-2xl relative overflow-hidden">
-        {/* Glow Dourado sutil no topo */}
-        <div className="absolute top-0 right-1/4 w-96 h-32 bg-[#D4A373]/5 rounded-full blur-3xl pointer-events-none" />
-
-        {/* Lado Esquerdo: Logo / Monograma + Badge Ativas */}
-        <div className="flex items-center gap-3.5 shrink-0">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#D4A373] via-[#B8860B] to-[#73520E] text-black font-extrabold flex items-center justify-center text-sm shadow-lg shadow-amber-500/20 shrink-0">
-            N
+      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 sm:p-5 rounded-xl bg-white border border-slate-200 shadow-xs dark:bg-[#121215] dark:border-zinc-800 transition-colors">
+        {/* Lado Esquerdo: Logo / Monograma Sóbrio + Badge Ativas */}
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-bold flex items-center justify-center text-xs tracking-wider shrink-0 shadow-xs">
+            NV
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-extrabold font-display tracking-wider text-[#F4F4F6] text-base">
+              <span className="font-bold text-slate-900 dark:text-zinc-100 text-sm tracking-tight">
                 NAVILLE
               </span>
-              <span className="text-[10px] uppercase font-bold tracking-widest px-2.5 py-0.5 rounded-full bg-[#D4A373]/12 text-[#D4A373] border border-[#D4A373]/30">
+              <span className="text-[10px] uppercase font-semibold tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700">
                 Torre de Controle
               </span>
             </div>
-            <p className="text-[11px] text-[#8E8E98] font-medium">
-              Painel Executivo de Barbearias e Infraestrutura SaaS
+            <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
+              Gestão Corporativa de Barbearias e Infraestrutura SaaS
             </p>
           </div>
 
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 border border-[#262630] text-xs font-mono font-bold text-[#34D399] shrink-0">
-            <span className="w-2 h-2 rounded-full bg-[#34D399] animate-pulse" />
+          <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-100/70 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-medium text-slate-700 dark:text-zinc-300 shrink-0">
+            {/* Live green indicator with subtle ping */}
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
+            </span>
             <span>{biMetrics.activeTenantsCount} Barbearias Ativas</span>
           </div>
         </div>
 
-        {/* Centro: Pílulas de Navegação Rápida (Abas Principais) */}
-        <nav className="flex items-center p-1 rounded-full bg-black/70 border border-[#262630] overflow-x-auto max-w-full shrink-0 shadow-inner">
+        {/* Centro: Pílulas de Navegação Rápida (Segmented Control Sóbrio) */}
+        <nav className="flex items-center p-1 rounded-lg bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 overflow-x-auto max-w-full shrink-0 gap-0.5">
           <button
             type="button"
             onClick={() => setActiveTab('overview')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
               activeTab === 'overview'
-                ? 'bg-gradient-to-r from-[#D4A373] to-[#B8860B] text-black shadow-lg shadow-amber-500/20 font-extrabold'
-                : 'text-[#8E8E98] hover:text-white'
+                ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-xs font-semibold'
+                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
             }`}
           >
             <ChartLineUp className="w-3.5 h-3.5" weight="bold" />
@@ -449,10 +452,10 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('tenants')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
               activeTab === 'tenants'
-                ? 'bg-gradient-to-r from-[#D4A373] to-[#B8860B] text-black shadow-lg shadow-amber-500/20 font-extrabold'
-                : 'text-[#8E8E98] hover:text-white'
+                ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-xs font-semibold'
+                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
             }`}
           >
             <Storefront className="w-3.5 h-3.5" />
@@ -462,10 +465,10 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('metrics')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
               activeTab === 'metrics'
-                ? 'bg-gradient-to-r from-[#D4A373] to-[#B8860B] text-black shadow-lg shadow-amber-500/20 font-extrabold'
-                : 'text-[#8E8E98] hover:text-white'
+                ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-xs font-semibold'
+                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
             }`}
           >
             <CurrencyDollar className="w-3.5 h-3.5" />
@@ -475,10 +478,10 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('evolution')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
               activeTab === 'evolution'
-                ? 'bg-gradient-to-r from-[#D4A373] to-[#B8860B] text-black shadow-lg shadow-amber-500/20 font-extrabold'
-                : 'text-[#8E8E98] hover:text-white'
+                ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-xs font-semibold'
+                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
             }`}
           >
             <ChatCenteredDots className="w-3.5 h-3.5" />
@@ -488,74 +491,100 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('logs')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
               activeTab === 'logs'
-                ? 'bg-gradient-to-r from-[#D4A373] to-[#B8860B] text-black shadow-lg shadow-amber-500/20 font-extrabold'
-                : 'text-[#8E8E98] hover:text-white'
+                ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-xs font-semibold'
+                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
             }`}
           >
             <Bug className="w-3.5 h-3.5" />
             <span>Auditoria e Logs</span>
             {unresolvedErrorsCount > 0 && (
-              <span className="w-2 h-2 rounded-full bg-[#F87171] animate-ping" />
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
             )}
           </button>
         </nav>
 
-        {/* Lado Direito: Live Poll, Alternador de Ambiente e Perfil */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        {/* Lado Direito: Live Poll, Alternador de Tema, Ambiente e Perfil */}
+        <div className="flex items-center gap-2 shrink-0">
           {/* Status PocketBase */}
           <div
-            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-mono border ${
+            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono border ${
               isPocketBaseOnline
-                ? 'bg-[#34D399]/10 text-[#34D399] border-[#34D399]/30'
-                : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30'
+                : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700'
             }`}
             title={isPocketBaseOnline ? 'PocketBase Online na porta 8090' : 'Usando LocalStorage'}
           >
+            {isPocketBaseOnline && (
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+            )}
             <Database className="w-3 h-3" />
-            <span>PocketBase (8090)</span>
+            <span>PB (8090)</span>
           </div>
 
           {/* Botão Live Poll */}
           <button
             type="button"
             onClick={handleLivePoll}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/60 hover:bg-zinc-800 border border-[#262630] text-[#8E8E98] hover:text-white text-xs font-mono transition cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 text-xs font-mono transition cursor-pointer shadow-xs"
             title={`Última atualização: ${lastRefreshedAt}`}
           >
-            <ArrowsClockwise className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#D4A373]' : ''}`} />
+            <ArrowsClockwise className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-slate-900 dark:text-zinc-100' : ''}`} />
             <span className="hidden xl:inline">{lastRefreshedAt}</span>
           </button>
 
+          {/* Alternador de Tema Claro / Escuro (Suporte Dual com .dark) */}
+          <button
+            type="button"
+            onClick={() => setAdminTheme(adminTheme === 'dark' ? 'light' : 'dark')}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-medium transition cursor-pointer shadow-xs"
+            title={adminTheme === 'dark' ? 'Mudar para Modo Claro' : 'Mudar para Modo Escuro'}
+          >
+            {adminTheme === 'dark' ? (
+              <>
+                <Sun className="w-3.5 h-3.5 text-amber-400" weight="bold" />
+                <span className="hidden sm:inline">Claro</span>
+              </>
+            ) : (
+              <>
+                <Moon className="w-3.5 h-3.5 text-slate-600" weight="bold" />
+                <span className="hidden sm:inline">Escuro</span>
+              </>
+            )}
+          </button>
+
           {/* Alternador de Ambiente */}
-          <div className="flex items-center p-0.5 rounded-xl bg-black/60 border border-[#262630]">
+          <div className="flex items-center p-0.5 rounded-lg bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
             {(['production', 'staging'] as const).map((env) => (
               <button
                 key={env}
                 type="button"
                 onClick={() => setEnvironment(env)}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-mono uppercase font-bold transition ${
+                className={`px-2 py-0.5 rounded-md text-[10px] font-mono uppercase font-semibold transition cursor-pointer ${
                   environment === env
-                    ? 'bg-[#D4A373] text-black shadow-sm'
-                    : 'text-[#8E8E98] hover:text-white'
+                    ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-xs'
+                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
                 }`}
               >
-                {env === 'production' ? 'PRODUÇÃO' : 'HOMOLOGAÇÃO'}
+                {env === 'production' ? 'PROD' : 'HMLG'}
               </button>
             ))}
           </div>
 
-          <div className="h-6 w-px bg-[#262630] mx-0.5" />
+          <div className="h-5 w-px bg-slate-200 dark:bg-zinc-800 mx-0.5" />
 
           {/* Perfil Executivo */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#B8860B] via-[#D4A373] to-amber-200 text-black font-extrabold flex items-center justify-center text-xs shadow-md">
-              LS
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-slate-200 text-slate-800 dark:bg-zinc-800 dark:text-zinc-200 font-bold flex items-center justify-center text-xs border border-slate-300 dark:border-zinc-700 shadow-xs">
+              FB
             </div>
             <div className="hidden xl:block text-left">
-              <span className="text-xs font-bold text-[#F4F4F6] block leading-tight">Leonardo Soares</span>
-              <span className="text-[10px] text-[#8E8E98] block leading-tight">Super Administrador Master</span>
+              <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100 block leading-tight">Felipe Belchior</span>
+              <span className="text-[10px] text-slate-500 dark:text-zinc-400 block leading-tight">Super Admin</span>
             </div>
           </div>
         </div>
@@ -570,21 +599,21 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
             <button
               type="button"
               onClick={() => onNavigateView('admin')}
-              className="w-10 h-10 rounded-xl bg-[#141418] hover:bg-zinc-800 border border-[#262630] flex items-center justify-center text-[#8E8E98] hover:text-white transition cursor-pointer shrink-0 shadow-lg"
+              className="w-9 h-9 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:border-zinc-800 flex items-center justify-center text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 transition cursor-pointer shrink-0 shadow-xs"
               title="Voltar ao Painel da Barbearia"
             >
               <ArrowLeft className="w-4 h-4" weight="bold" />
             </button>
           )}
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold font-display text-[#F4F4F6] tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-zinc-100 tracking-tight">
               {activeTab === 'overview' && 'Torre de Controle Executiva'}
               {activeTab === 'tenants' && 'Gestão de Barbearias'}
               {activeTab === 'metrics' && 'Inteligência Financeira e Indicadores SaaS'}
               {activeTab === 'evolution' && 'Cluster de WhatsApp e Motor Anti-Ban'}
               {activeTab === 'logs' && 'Auditoria e Diagnóstico Técnico'}
             </h1>
-            <p className="text-xs text-[#8E8E98] mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
               Monitoramento em tempo real de faturamento, infraestrutura WhatsApp e governança das barbearias.
             </p>
           </div>
@@ -595,7 +624,7 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
             <button
               type="button"
               onClick={onNewTenant}
-              className="h-10 px-5 rounded-xl bg-gradient-to-r from-[#D4A373] to-[#B8860B] hover:from-[#e5bd47] hover:to-[#c49215] text-black text-xs font-extrabold flex items-center gap-2 transition active:scale-95 shadow-xl shadow-amber-500/20 cursor-pointer"
+              className="h-9 px-4 rounded-lg bg-slate-900 text-white hover:bg-slate-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white text-xs font-semibold flex items-center gap-2 transition active:scale-[0.99] shadow-xs cursor-pointer"
             >
               <Plus className="w-4 h-4" weight="bold" />
               <span>Nova Barbearia</span>
@@ -605,89 +634,80 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
       </div>
 
       {/* ========================================================= */}
-      {/* 3. GRID SUPERIOR DE 4 KPIS COM MICRO-GRÁFICOS             */}
+      {/* 3. GRID SUPERIOR DE 4 KPIS COM MICRO-GRÁFICOS SÓBRIOS     */}
       {/* ========================================================= */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: MRR RECORRENTE COM SPARKLINE CURVA DOURADA */}
-        <div className="p-5 rounded-2xl bg-[#141418] border border-[#262630] flex flex-col justify-between hover:border-[#D4A373]/40 transition shadow-xl group relative overflow-hidden">
+        {/* KPI 1: MRR RECORRENTE */}
+        <div className="p-5 rounded-xl bg-white border border-slate-200 dark:bg-[#121215] dark:border-zinc-800 flex flex-col justify-between shadow-xs transition-colors">
           <div>
-            <div className="flex items-center justify-between text-[#8E8E98]">
-              <span className="text-xs font-bold text-zinc-300 tracking-wide uppercase">
-                Receita Mensal Recorrente (MRR)
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                Receita Recorrente (MRR)
               </span>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#D4A373]/12 text-[#D4A373] border border-[#D4A373]/30">
-                Anual Projetado: {formatCurrency(biMetrics.arr)}
+              <span className="text-[11px] font-mono text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800/80 px-2 py-0.5 rounded border border-slate-200 dark:border-zinc-700">
+                ARR: {formatCurrency(biMetrics.arr)}
               </span>
             </div>
 
             <div className="mt-3">
-              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-[#F4F4F6] tracking-tight">
+              <div className="text-2xl sm:text-3xl font-bold font-mono text-slate-900 dark:text-zinc-100 tracking-tight">
                 {formatCurrency(biMetrics.mrr)}
               </div>
-              <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-[#34D399]">
+              <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                 <TrendUp className="w-3.5 h-3.5" weight="bold" />
-                <span>+18.4% em relação ao mês anterior</span>
+                <span>+18.4% vs mês anterior</span>
               </div>
             </div>
           </div>
 
-          {/* Micro-gráfico Sparkline em SVG suave com gradiente dourado */}
-          <div className="mt-4 pt-3 border-t border-[#262630]/60 flex items-center justify-between">
-            <div className="h-10 w-28 relative">
-              <svg className="w-full h-full overflow-visible" viewBox="0 0 100 35">
-                <defs>
-                  <linearGradient id="goldSparkGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#D4A373" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#D4A373" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
+          {/* Micro-gráfico Sparkline em SVG sóbrio */}
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800/80 flex items-center justify-between">
+            <div className="h-8 w-24 relative">
+              <svg className="w-full h-full overflow-visible" viewBox="0 0 100 30">
                 <path
-                  d="M 0 28 Q 20 22 40 25 T 70 12 T 100 4 L 100 35 L 0 35 Z"
-                  fill="url(#goldSparkGrad)"
-                />
-                <path
-                  d="M 0 28 Q 20 22 40 25 T 70 12 T 100 4"
+                  d="M 0 24 Q 20 18 40 20 T 70 10 T 100 4"
                   fill="none"
-                  stroke="#D4A373"
+                  className="stroke-slate-400 dark:stroke-zinc-500"
                   strokeWidth="2"
                   strokeLinecap="round"
                 />
               </svg>
             </div>
             <div className="text-right">
-              <span className="text-[10px] text-[#8E8E98] block uppercase font-bold">Expansão de Cadeiras</span>
-              <span className="text-xs font-mono font-bold text-[#D4A373]">
+              <span className="text-[10px] text-slate-500 dark:text-zinc-400 block uppercase font-medium">Expansão de Cadeiras</span>
+              <span className="text-xs font-mono font-semibold text-slate-900 dark:text-zinc-200">
                 +{formatCurrency(biMetrics.expansionRevenue)}
               </span>
             </div>
           </div>
         </div>
 
-        {/* KPI 2: TOTAL DE BARBEARIAS COM BARRAS DE AQUISIÇÃO */}
-        <div className="p-5 rounded-2xl bg-[#141418] border border-[#262630] flex flex-col justify-between hover:border-[#D4A373]/40 transition shadow-xl group">
+        {/* KPI 2: REDE DE BARBEARIAS */}
+        <div className="p-5 rounded-xl bg-white border border-slate-200 dark:bg-[#121215] dark:border-zinc-800 flex flex-col justify-between shadow-xs transition-colors">
           <div>
-            <div className="flex items-center justify-between text-[#8E8E98]">
-              <span className="text-xs font-bold text-zinc-300 tracking-wide uppercase">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-zinc-400">
                 Rede de Barbearias
               </span>
-              <div className="w-5 h-5 rounded-lg bg-[#34D399]/15 border border-[#34D399]/30 text-[#34D399] flex items-center justify-center text-[10px] font-bold">
-                ✓
-              </div>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/40">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span>{biMetrics.activeTenantsCount} ativas</span>
+              </span>
             </div>
 
             <div className="mt-3">
-              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-[#F4F4F6] tracking-tight">
-                {biMetrics.activeTenantsCount} ativas
+              <div className="text-2xl sm:text-3xl font-bold font-mono text-slate-900 dark:text-zinc-100 tracking-tight">
+                {biMetrics.activeTenantsCount} / {biMetrics.totalTenantsCount}
               </div>
-              <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-[#8E8E98]">
-                <span>Total de {biMetrics.totalTenantsCount} cadastradas</span>
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400">
+                <span>Total de estabelecimentos cadastrados</span>
               </div>
             </div>
           </div>
 
-          {/* Gráfico de Barras Verticais de 7 Meses */}
-          <div className="mt-4 pt-2 border-t border-[#262630]/60">
-            <div className="flex items-end justify-between gap-1.5 h-10">
+          {/* Gráfico de Barras Verticais Sóbrio */}
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800/80">
+            <div className="flex items-end justify-between gap-1.5 h-8">
               {[
                 { month: 'Mai', height: '45%', active: false },
                 { month: 'Jun', height: '55%', active: false },
@@ -699,13 +719,13 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
                 <div key={b.month} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
                   <div
                     style={{ height: b.height }}
-                    className={`w-full rounded-t-sm transition-all ${
+                    className={`w-full rounded-xs transition-all ${
                       b.active
-                        ? 'bg-gradient-to-t from-[#B8860B] to-[#D4A373] shadow-md shadow-amber-500/30'
-                        : 'bg-zinc-800'
+                        ? 'bg-slate-900 dark:bg-zinc-200'
+                        : 'bg-slate-200 dark:bg-zinc-800'
                     }`}
                   />
-                  <span className={`text-[8px] font-mono ${b.active ? 'text-[#D4A373] font-bold' : 'text-zinc-500'}`}>
+                  <span className={`text-[9px] font-mono ${b.active ? 'text-slate-900 dark:text-zinc-200 font-semibold' : 'text-slate-400 dark:text-zinc-500'}`}>
                     {b.month}
                   </span>
                 </div>
@@ -714,95 +734,82 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
           </div>
         </div>
 
-        {/* KPI 3: GMV TOTAL PROCESSADO COM SPLINE CURVA ESMERALDA */}
-        <div className="p-5 rounded-2xl bg-[#141418] border border-[#262630] flex flex-col justify-between hover:border-[#34D399]/40 transition shadow-xl group">
+        {/* KPI 3: GMV TOTAL PROCESSADO */}
+        <div className="p-5 rounded-xl bg-white border border-slate-200 dark:bg-[#121215] dark:border-zinc-800 flex flex-col justify-between shadow-xs transition-colors">
           <div>
-            <div className="flex items-center justify-between text-[#8E8E98]">
-              <span className="text-xs font-bold text-zinc-300 tracking-wide uppercase">
-                Faturamento Bruto da Rede (GMV)
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                Faturamento Balcão (GMV)
               </span>
-              <div className="w-6 h-6 rounded-lg bg-[#34D399]/15 border border-[#34D399]/30 text-[#34D399] flex items-center justify-center">
-                <Clock className="w-3.5 h-3.5" />
-              </div>
+              <span className="text-[11px] font-mono text-slate-500 dark:text-zinc-400">
+                Rede Total
+              </span>
             </div>
 
             <div className="mt-3">
-              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-[#34D399] tracking-tight">
+              <div className="text-2xl sm:text-3xl font-bold font-mono text-slate-900 dark:text-zinc-100 tracking-tight">
                 {formatCurrency(biMetrics.gmvTotal)}
               </div>
-              <div className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-[#34D399]">
+              <div className="mt-1 flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                 <TrendUp className="w-3.5 h-3.5" weight="bold" />
                 <span>+8.2% de volume líquido</span>
               </div>
             </div>
           </div>
 
-          {/* Spline curva Bezier SVG com nós circulares */}
-          <div className="mt-4 pt-2 border-t border-[#262630]/60">
-            <div className="h-10 relative flex items-end">
-              <svg className="w-full h-8 overflow-visible" viewBox="0 0 200 35">
-                <defs>
-                  <linearGradient id="gmvSplineGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#34D399" stopOpacity="0.25" />
-                    <stop offset="100%" stopColor="#34D399" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
+          {/* Spline curva Bezier Sóbria */}
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800/80">
+            <div className="h-8 relative flex items-end">
+              <svg className="w-full h-7 overflow-visible" viewBox="0 0 200 25">
                 <path
-                  d="M 5 28 C 30 25, 60 22, 90 18 C 120 12, 150 16, 175 8 C 185 5, 195 4, 195 4 L 195 35 L 5 35 Z"
-                  fill="url(#gmvSplineGrad)"
-                />
-                <path
-                  d="M 5 28 C 30 25, 60 22, 90 18 C 120 12, 150 16, 175 8 C 185 5, 195 4, 195 4"
+                  d="M 5 20 C 30 18, 60 16, 90 13 C 120 8, 150 11, 175 6 C 185 4, 195 3, 195 3"
                   fill="none"
-                  stroke="#34D399"
+                  className="stroke-emerald-600 dark:stroke-emerald-400"
                   strokeWidth="2"
                   strokeLinecap="round"
                 />
-                <circle cx="5" cy="28" r="2.5" fill="#34D399" />
-                <circle cx="90" cy="18" r="2.5" fill="#34D399" />
-                <circle cx="175" cy="8" r="2.5" fill="#34D399" />
-                <circle cx="195" cy="4" r="3" fill="#34D399" stroke="#141418" strokeWidth="1.5" />
+                <circle cx="195" cy="3" r="3" className="fill-emerald-600 dark:fill-emerald-400" />
               </svg>
             </div>
           </div>
         </div>
 
-        {/* KPI 4: EVOLUTION CLUSTER HEALTH & DISPAROS ANTI-BAN */}
-        <div className="p-5 rounded-2xl bg-[#141418] border border-[#262630] flex flex-col justify-between hover:border-[#D4A373]/40 transition shadow-xl group">
+        {/* KPI 4: EVOLUTION CLUSTER HEALTH & WHATSAPP */}
+        <div className="p-5 rounded-xl bg-white border border-slate-200 dark:bg-[#121215] dark:border-zinc-800 flex flex-col justify-between shadow-xs transition-colors">
           <div>
-            <div className="flex items-center justify-between text-[#8E8E98]">
-              <span className="text-xs font-bold text-zinc-300 tracking-wide uppercase flex items-center gap-1.5">
-                <WhatsAppIcon variant="official" size={14} />
-                <span>Motor de WhatsApp (Evolution)</span>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-zinc-400 flex items-center gap-1.5">
+                <WhatsAppIcon variant="official" size={13} />
+                <span>Motor WhatsApp</span>
               </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#34D399]/15 text-[#34D399] border border-[#34D399]/30 font-bold">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 font-medium">
                 v2.3.7
               </span>
             </div>
 
             <div className="mt-3">
-              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-[#F4F4F6] tracking-tight flex items-center gap-2">
+              <div className="text-2xl sm:text-3xl font-bold font-mono text-slate-900 dark:text-zinc-100 tracking-tight flex items-center gap-2">
                 <span>{biMetrics.openWhatsAppCount}/{biMetrics.totalTenantsCount}</span>
-                <span className="text-xs font-sans text-[#34D399] font-bold">Conectadas</span>
+                <span className="text-xs font-sans text-emerald-600 dark:text-emerald-400 font-medium">Conectadas</span>
               </div>
-              <div className="mt-1 text-[11px] font-semibold text-[#8E8E98]">
-                {biMetrics.evolutionMessagesCount} mensagens enviadas este mês
+              <div className="mt-1 text-xs text-slate-500 dark:text-zinc-400">
+                {biMetrics.evolutionMessagesCount} disparos realizados
               </div>
             </div>
           </div>
 
           {/* Mini-Cards dos Planos Ativas */}
-          <div className="mt-4 pt-2 border-t border-[#262630]/60">
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800/80">
             <div className="flex items-center gap-1.5">
               {(['starter', 'pro', 'enterprise'] as const).map((planKey) => (
                 <button
                   key={planKey}
                   type="button"
                   onClick={() => setSelectedPlanCard(planKey)}
-                  className={`flex-1 py-1.5 rounded-lg text-[10px] font-mono font-bold transition text-center uppercase tracking-wider ${
+                  className={`flex-1 py-1 rounded-md text-[10px] font-mono font-medium transition text-center uppercase cursor-pointer ${
                     selectedPlanCard === planKey
-                      ? 'bg-gradient-to-r from-[#D4A373] to-[#B8860B] text-black shadow-md'
-                      : 'bg-black/50 text-[#8E8E98] hover:text-white border border-[#262630]'
+                      ? 'bg-slate-900 text-white dark:bg-zinc-200 dark:text-zinc-900 font-bold shadow-xs'
+                      : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
                   }`}
                 >
                   {planKey === 'starter' ? 'INICIANTE' : planKey === 'pro' ? 'PRO' : 'ENTERPRISE'}
@@ -817,13 +824,13 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
       {/* 4. BARRA DE FILTROS AVANÇADOS E BUSCA UNIVERSAL           */}
       {/* ========================================================= */}
       {activeTab === 'overview' && (
-        <section className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#141418] border border-[#262630] text-xs">
-          {/* Lado Esquerdo: Filtros Ativas + Dropdowns */}
+        <section className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3.5 rounded-xl bg-white border border-slate-200 dark:bg-[#121215] dark:border-zinc-800 text-xs shadow-xs transition-colors">
+          {/* Lado Esquerdo: Filtros Ativas + Dropdowns Sóbrios */}
           <div className="flex items-center gap-2.5 flex-wrap">
-            <div className="h-8 px-2.5 rounded-xl bg-black/60 border border-[#262630] text-[#F4F4F6] font-semibold flex items-center gap-1.5 shrink-0">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-[#D4A373]" />
+            <div className="h-8 px-2.5 rounded-lg bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 font-medium flex items-center gap-1.5 shrink-0">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
               <span>Filtros</span>
-              <span className="w-4 h-4 rounded-full bg-[#D4A373] text-black text-[10px] font-extrabold flex items-center justify-center">
+              <span className="w-4 h-4 rounded-full bg-slate-900 text-white dark:bg-zinc-200 dark:text-zinc-900 text-[10px] font-bold flex items-center justify-center">
                 {activeFiltersCount}
               </span>
             </div>
@@ -832,7 +839,7 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
             <select
               value={tableSearch}
               onChange={(e) => setTableSearch(e.target.value)}
-              className="h-8 px-3 rounded-xl bg-black/50 border border-[#262630] text-[#F4F4F6] text-xs focus:outline-none focus:border-[#D4A373] cursor-pointer"
+              className="h-8 px-3 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-xs focus:outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-zinc-600 cursor-pointer"
             >
               <option value="">Todas as Barbearias</option>
               {tenants.map((t) => (
@@ -846,11 +853,11 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
             <select
               value={tableStatusFilter}
               onChange={(e) => setTableStatusFilter(e.target.value as any)}
-              className="h-8 px-3 rounded-xl bg-black/50 border border-[#262630] text-[#F4F4F6] text-xs focus:outline-none focus:border-[#D4A373] cursor-pointer"
+              className="h-8 px-3 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-xs focus:outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-zinc-600 cursor-pointer"
             >
               <option value="all">Status: Todos</option>
               <option value="active">Ativas</option>
-              <option value="trial">Em Teste (Período Grátis)</option>
+              <option value="trial">Em Teste</option>
               <option value="blocked">Inadimplentes / Bloqueadas</option>
             </select>
 
@@ -858,7 +865,7 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
             <select
               value={tablePlanFilter}
               onChange={(e) => setTablePlanFilter(e.target.value as any)}
-              className="h-8 px-3 rounded-xl bg-black/50 border border-[#262630] text-[#F4F4F6] text-xs focus:outline-none focus:border-[#D4A373] cursor-pointer"
+              className="h-8 px-3 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-xs focus:outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-zinc-600 cursor-pointer"
             >
               <option value="all">Planos: Todos</option>
               <option value="starter">Iniciante (Starter)</option>
@@ -870,7 +877,7 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
             <select
               value={tableWhatsAppFilter}
               onChange={(e) => setTableWhatsAppFilter(e.target.value as any)}
-              className="h-8 px-3 rounded-xl bg-black/50 border border-[#262630] text-[#F4F4F6] text-xs focus:outline-none focus:border-[#D4A373] cursor-pointer"
+              className="h-8 px-3 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-xs focus:outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-zinc-600 cursor-pointer"
             >
               <option value="all">WhatsApp: Todos</option>
               <option value="open">Conectado (Ativa)</option>
@@ -880,22 +887,22 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
 
           {/* Lado Direito: Seletor de Período + Input de Busca Universal */}
           <div className="flex items-center gap-2.5 flex-wrap">
-            <div className="flex items-center p-0.5 rounded-xl bg-black/50 border border-[#262630] shrink-0">
+            <div className="flex items-center p-0.5 rounded-lg bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shrink-0">
               {[
                 { id: 'hoje', label: 'Hoje' },
                 { id: '30d', label: '30 Dias' },
                 { id: 'mes', label: 'Este Mês' },
                 { id: 'ano', label: 'Este Ano' },
-                { id: 'vitalicio', label: 'Histórico Completo' },
+                { id: 'vitalicio', label: 'Histórico' },
               ].map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => setPeriod(item.id as SaaSTelemetryPeriod)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1 ${
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer flex items-center gap-1 ${
                     period === item.id
-                      ? 'bg-[#D4A373] text-black shadow-md'
-                      : 'text-[#8E8E98] hover:text-white'
+                      ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-xs font-semibold'
+                      : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
                   }`}
                 >
                   {period === item.id && <CalendarBlank className="w-3 h-3" />}
@@ -910,41 +917,41 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
                 type="text"
                 value={tableSearch}
                 onChange={(e) => setTableSearch(e.target.value)}
-                placeholder="Buscar por barbearia, proprietário ou cidade..."
-                className="h-8 w-48 sm:w-60 pl-3 pr-8 rounded-xl bg-black/50 border border-[#262630] text-white text-xs placeholder-zinc-500 focus:outline-none focus:border-[#D4A373]"
+                placeholder="Buscar barbearia, dono, cidade..."
+                className="h-8 w-48 sm:w-60 pl-3 pr-8 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-xs placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-zinc-600"
               />
-              <MagnifyingGlass className="w-3.5 h-3.5 text-[#8E8E98] absolute right-2.5 top-1/2 -translate-y-1/2" />
+              <MagnifyingGlass className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 absolute right-2.5 top-1/2 -translate-y-1/2" />
             </div>
           </div>
         </section>
       )}
 
       {/* ========================================================= */}
-      {/* 5. SPLIT MASTER-DETAIL CONTAINER (PADRÃO FINANCEIRO)      */}
+      {/* 5. SPLIT MASTER-DETAIL CONTAINER (PADRÃO LINEAR / STRIPE)  */}
       {/* ========================================================= */}
       {activeTab === 'overview' && (
-        <section className="rounded-2xl bg-[#1B1B22] border border-[#262630] shadow-2xl overflow-hidden">
+        <section className="rounded-xl bg-white border border-slate-200 dark:bg-[#121215] dark:border-zinc-800 shadow-xs overflow-hidden transition-colors">
           {/* Header do Container Master-Detail */}
-          <div className="px-5 py-3 border-b border-[#262630] flex flex-wrap items-center justify-between gap-3 bg-[#141418]">
+          <div className="px-5 py-3 border-b border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 bg-slate-50/70 dark:bg-zinc-900/40">
             <div className="flex items-center gap-2">
-              <Storefront className="w-4 h-4 text-[#D4A373]" />
-              <span className="text-xs font-bold uppercase tracking-wider text-white">
+              <Storefront className="w-4 h-4 text-slate-600 dark:text-zinc-300" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-900 dark:text-zinc-100">
                 Carteira de Estabelecimentos
               </span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/60 text-[#8E8E98] font-mono border border-[#262630]">
+              <span className="text-[11px] px-2 py-0.5 rounded-md bg-white dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 font-mono border border-slate-200 dark:border-zinc-700">
                 {filteredHealthRecords.length} de {tenants.length}
               </span>
             </div>
 
             {/* Abas Rápidas de Status */}
-            <div className="flex items-center p-0.5 rounded-full bg-black/60 border border-[#262630]">
+            <div className="flex items-center p-0.5 rounded-lg bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
               <button
                 type="button"
                 onClick={() => setTableStatusFilter('all')}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
                   tableStatusFilter === 'all'
-                    ? 'bg-zinc-700 text-white'
-                    : 'text-[#8E8E98] hover:text-white'
+                    ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-xs font-semibold'
+                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
                 }`}
               >
                 Todas ({tenants.length})
@@ -952,11 +959,23 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
 
               <button
                 type="button"
+                onClick={() => setTableStatusFilter('active')}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
+                  tableStatusFilter === 'active'
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40 font-semibold'
+                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
+                }`}
+              >
+                Ativas ({tenants.filter((t) => t.status === 'active').length})
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setTableStatusFilter('trial')}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
                   tableStatusFilter === 'trial'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                    : 'text-[#8E8E98] hover:text-white'
+                    ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/40 font-semibold'
+                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
                 }`}
               >
                 Em Teste ({tenants.filter((t) => t.status === 'trial').length})
@@ -965,25 +984,13 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
               <button
                 type="button"
                 onClick={() => setTableStatusFilter('blocked')}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
                   tableStatusFilter === 'blocked'
-                    ? 'bg-[#F87171]/20 text-[#F87171] border border-[#F87171]/40'
-                    : 'text-[#8E8E98] hover:text-white'
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/40 font-semibold'
+                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
                 }`}
               >
                 Inadimplentes ({tenants.filter((t) => t.status === 'blocked').length})
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setTableStatusFilter('active')}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition cursor-pointer ${
-                  tableStatusFilter === 'active'
-                    ? 'bg-gradient-to-r from-[#D4A373] to-[#B8860B] text-black font-extrabold'
-                    : 'text-[#8E8E98] hover:text-white'
-                }`}
-              >
-                Ativas ({tenants.filter((t) => t.status === 'active').length})
               </button>
             </div>
           </div>
@@ -991,12 +998,24 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
           {/* Corpo Dividido: Master (Esquerda, 5 cols) + Detail (Direita, 7 cols) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[480px]">
             {/* MASTER LIST (ESQUERDA) */}
-            <div className="lg:col-span-5 p-3.5 border-b lg:border-b-0 lg:border-r border-[#262630] space-y-2 overflow-y-auto max-h-[620px] bg-black/20">
+            <div className="lg:col-span-5 p-3 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-zinc-800 space-y-2 overflow-y-auto max-h-[640px] bg-slate-50/30 dark:bg-zinc-950/20">
               {filteredHealthRecords.length === 0 ? (
-                <div className="py-16 text-center text-[#8E8E98] space-y-1">
-                  <Storefront className="w-8 h-8 mx-auto text-zinc-600 mb-2" />
-                  <p className="text-xs font-semibold text-zinc-300">Nenhum estabelecimento encontrado</p>
-                  <p className="text-[11px] text-zinc-500">Ajuste os filtros de status ou busca acima.</p>
+                <div className="py-16 px-4 text-center text-slate-500 dark:text-zinc-400 space-y-3">
+                  <Storefront className="w-10 h-10 mx-auto text-slate-400 dark:text-zinc-600 mb-1" />
+                  <p className="text-sm font-semibold text-slate-900 dark:text-zinc-100">Nenhuma barbearia encontrada</p>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Cadastre uma nova barbearia para gerenciar faturamento, cadeiras e motor de WhatsApp.
+                  </p>
+                  {onNewTenant && (
+                    <button
+                      type="button"
+                      onClick={onNewTenant}
+                      className="mt-2 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-medium text-xs shadow-xs hover:bg-slate-800 dark:hover:bg-white transition cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" weight="bold" />
+                      <span>Cadastrar Barbearia</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 filteredHealthRecords.map((r) => {
@@ -1011,19 +1030,19 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
                         setSelectedTenantId(r.tenantId);
                         onSelectTenant(r.tenantId);
                       }}
-                      className={`p-3.5 rounded-xl transition-all duration-200 cursor-pointer flex items-center justify-between gap-3 border ${
+                      className={`p-3 rounded-lg transition-all duration-150 cursor-pointer flex items-center justify-between gap-3 border ${
                         isSelected
-                          ? 'bg-[#D4A373]/12 border-[#D4A373] text-white shadow-xl shadow-amber-500/10 scale-[1.01]'
-                          : 'bg-[#141418] hover:bg-zinc-800/80 border-[#262630]'
+                          ? 'bg-slate-100 border-slate-300 text-slate-900 dark:bg-zinc-800/80 dark:border-zinc-700 dark:text-zinc-100 shadow-xs'
+                          : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 dark:bg-[#121215] dark:border-zinc-800/80 dark:hover:bg-zinc-800/40 dark:text-zinc-300'
                       }`}
                     >
                       {/* Avatar e Informações */}
                       <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 shadow-md ${
+                          className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 border ${
                             isSelected
-                              ? 'bg-gradient-to-br from-[#D4A373] to-[#997C22] text-black font-extrabold'
-                              : 'bg-zinc-800 text-zinc-300 border border-white/5'
+                              ? 'bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-transparent'
+                              : 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border-slate-200 dark:border-zinc-700'
                           }`}
                         >
                           {r.name.substring(0, 2).toUpperCase()}
@@ -1032,55 +1051,57 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span
-                              className={`font-bold text-xs truncate ${
-                                isSelected ? 'text-[#D4A373] font-extrabold' : 'text-white'
+                              className={`font-semibold text-xs truncate ${
+                                isSelected ? 'text-slate-900 dark:text-zinc-100' : 'text-slate-800 dark:text-zinc-200'
                               }`}
                             >
                               {r.name}
                             </span>
                             {r.plan === 'enterprise' && (
-                              <Crown className="w-3.5 h-3.5 text-[#D4A373]" weight="fill" />
+                              <Crown className="w-3 h-3 text-amber-500" weight="fill" />
                             )}
                           </div>
 
-                          <div className="text-[10px] text-[#8E8E98] font-mono truncate mt-0.5 flex items-center gap-1.5">
-                            <span className="text-[#D4A373]">/b/{r.slug}</span>
+                          <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono truncate mt-0.5 flex items-center gap-1.5">
+                            <span className="text-slate-600 dark:text-zinc-300">/b/{r.slug}</span>
                             <span>·</span>
-                            <span className="text-zinc-500">{r.city}</span>
+                            <span>{r.city}</span>
                           </div>
                         </div>
                       </div>
 
                       {/* GMV e Badges */}
                       <div className="text-right shrink-0 space-y-1">
-                        <div className="font-mono font-bold text-white text-xs">
+                        <div className="font-mono font-semibold text-slate-900 dark:text-zinc-100 text-xs">
                           {formatCurrency(r.gmvMonthly)}
                         </div>
 
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* Dot WhatsApp */}
-                          <span
-                            className={`w-2 h-2 rounded-full ${
-                              isWhatsAppOpen ? 'bg-[#34D399] animate-pulse' : 'bg-[#F87171]'
-                            }`}
-                            title={isWhatsAppOpen ? 'WhatsApp Conectado' : 'WhatsApp Desconectado'}
-                          />
+                          {/* Live green indicator for WhatsApp */}
+                          {isWhatsAppOpen ? (
+                            <span className="relative flex h-2 w-2" title="WhatsApp Conectado">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
+                            </span>
+                          ) : (
+                            <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-zinc-600" title="WhatsApp Desconectado" />
+                          )}
 
                           {raw?.is_vitalicio && (
-                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#D4A373]/20 text-[#D4A373] border border-[#D4A373]/40">
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/40">
                               Vitalício
                             </span>
                           )}
                           {r.status === 'blocked' ? (
-                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#F87171]/20 text-[#F87171] border border-[#F87171]/40">
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800/40">
                               Bloqueada
                             </span>
                           ) : r.status === 'trial' ? (
-                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/40">
                               Em Teste
                             </span>
                           ) : (
-                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#34D399]/15 text-[#34D399] border border-[#34D399]/30">
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/40">
                               Ativa
                             </span>
                           )}
@@ -1093,45 +1114,49 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
             </div>
 
             {/* DETAIL PANEL (DIREITA) */}
-            <div className="lg:col-span-7 p-6 flex flex-col justify-between bg-[#141418]">
+            <div className="lg:col-span-7 p-6 flex flex-col justify-between bg-white dark:bg-[#121215] transition-colors">
               {selectedRecord ? (
                 <div className="space-y-6">
-                  {/* Cabeçalho do Tenant Selecionado */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#262630]">
+                  {/* Cabeçalho do Estabelecimento Selecionado */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-zinc-800">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] uppercase font-bold tracking-widest text-[#D4A373]">
-                          Raio-X do Estabelecimento
+                        <span className="text-[10px] uppercase font-semibold tracking-wider text-slate-500 dark:text-zinc-400">
+                          Visão Corporativa
                         </span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-zinc-800 text-zinc-300 border border-white/5">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
                           Plano {selectedRecord.plan === "starter" ? "Iniciante" : selectedRecord.plan === "pro" ? "Profissional" : "Corporativo"}
                         </span>
                       </div>
 
-                      <h2 className="text-2xl font-extrabold font-display text-white tracking-tight flex items-center gap-2">
+                      <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-zinc-100 tracking-tight flex items-center gap-2">
                         <span>{selectedRecord.name}</span>
                         {selectedRecord.status === 'blocked' ? (
-                          <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#F87171]/20 text-[#F87171] border border-[#F87171]/30 font-sans font-semibold">
+                          <span className="text-xs px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800/40 font-medium">
                             Suspenso / Inadimplente
                           </span>
                         ) : (
-                          <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#34D399]/15 text-[#34D399] border border-[#34D399]/30 font-sans font-semibold">
-                            Regular / Em Dia
+                          <span className="text-xs px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/40 font-medium flex items-center gap-1.5">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
+                            </span>
+                            <span>Regular / Em Dia</span>
                           </span>
                         )}
                       </h2>
                     </div>
 
                     {/* Dados do Proprietário */}
-                    <div className="flex items-center gap-3 p-2.5 rounded-xl bg-black/40 border border-[#262630] shrink-0">
-                      <div className="w-9 h-9 rounded-xl bg-[#D4A373] text-black font-extrabold flex items-center justify-center text-xs">
+                    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold flex items-center justify-center text-xs">
                         {selectedRecord.ownerName.substring(0, 2).toUpperCase()}
                       </div>
                       <div>
-                        <span className="text-xs font-bold text-white block leading-tight">
+                        <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100 block leading-tight">
                           {selectedRecord.ownerName}
                         </span>
-                        <span className="text-[10px] text-[#8E8E98] font-mono block leading-tight">
+                        <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono block leading-tight">
                           {selectedRecord.ownerPhone}
                         </span>
                       </div>
@@ -1141,40 +1166,40 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
                   {/* Grid de 4 Micro-Chips de Métricas */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {/* Chip 1: GMV Mensal */}
-                    <div className="p-4 rounded-xl bg-black/40 border border-[#262630] space-y-1">
-                      <div className="flex items-center justify-between text-[#8E8E98]">
-                        <span className="text-[10px] uppercase font-bold">Faturamento Balcão (GMV)</span>
-                        <ArrowUpRight className="w-3.5 h-3.5 text-[#34D399]" />
+                    <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 space-y-1">
+                      <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400">
+                        <span className="text-[10px] uppercase font-medium">Faturamento Balcão (GMV)</span>
+                        <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       </div>
-                      <div className="text-lg font-extrabold font-mono text-[#34D399]">
+                      <div className="text-base font-bold font-mono text-slate-900 dark:text-zinc-100">
                         {formatCurrency(selectedRecord.gmvMonthly)}
                       </div>
-                      <span className="text-[10px] text-zinc-500 block">Movimentação no mês</span>
+                      <span className="text-[10px] text-slate-500 dark:text-zinc-400 block">Movimentação mensal</span>
                     </div>
 
-                    {/* Chip 2: Mensalidade SaaS SaaS (MRR) */}
-                    <div className="p-4 rounded-xl bg-black/40 border border-[#262630] space-y-1">
-                      <div className="flex items-center justify-between text-[#8E8E98]">
-                        <span className="text-[10px] uppercase font-bold">Mensalidade SaaS SaaS</span>
-                        <ArrowUpRight className="w-3.5 h-3.5 text-[#D4A373]" />
+                    {/* Chip 2: Mensalidade SaaS */}
+                    <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 space-y-1">
+                      <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400">
+                        <span className="text-[10px] uppercase font-medium">Mensalidade SaaS</span>
+                        <ArrowUpRight className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
                       </div>
-                      <div className="text-lg font-extrabold font-mono text-[#D4A373]">
+                      <div className="text-base font-bold font-mono text-slate-900 dark:text-zinc-100">
                         {selectedRawTenant.is_vitalicio ? 'R$ 0,00' : formatCurrency(selectedRecord.mrrContribution)}
                       </div>
-                      <span className="text-[10px] text-zinc-500 block">
-                        {selectedRawTenant.is_vitalicio ? 'Isenção Vitalícia / Beta Tester' : 'Assinatura mensal recorrente'}
+                      <span className="text-[10px] text-slate-500 dark:text-zinc-400 block truncate">
+                        {selectedRawTenant.is_vitalicio ? 'Isenção Vitalícia' : 'Recorrência mensal'}
                       </span>
                     </div>
 
                     {/* Chip 3: Cadeiras com Stepper */}
-                    <div className="p-4 rounded-xl bg-black/40 border border-[#262630] space-y-1">
-                      <div className="flex items-center justify-between text-[#8E8E98]">
-                        <span className="text-[10px] uppercase font-bold">Cadeiras de Barbeiro</span>
+                    <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 space-y-1">
+                      <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400">
+                        <span className="text-[10px] uppercase font-medium">Cadeiras</span>
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
                             onClick={() => handleAdjustSeats(-1)}
-                            className="w-4 h-4 rounded bg-zinc-800 hover:bg-zinc-700 text-white flex items-center justify-center text-xs"
+                            className="w-4 h-4 rounded bg-slate-200 hover:bg-slate-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 flex items-center justify-center text-xs font-bold transition cursor-pointer"
                             title="Remover cadeira"
                           >
                             -
@@ -1182,29 +1207,29 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
                           <button
                             type="button"
                             onClick={() => handleAdjustSeats(1)}
-                            className="w-4 h-4 rounded bg-zinc-800 hover:bg-zinc-700 text-white flex items-center justify-center text-xs"
+                            className="w-4 h-4 rounded bg-slate-200 hover:bg-slate-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 flex items-center justify-center text-xs font-bold transition cursor-pointer"
                             title="Adicionar cadeira"
                           >
                             +
                           </button>
                         </div>
                       </div>
-                      <div className="text-lg font-extrabold font-mono text-white">
+                      <div className="text-base font-bold font-mono text-slate-900 dark:text-zinc-100">
                         {selectedRawTenant.limite_profissionais || selectedRawTenant.max_barbeiros || 1} cadeira(s)
                       </div>
-                      <span className="text-[10px] text-zinc-500 block">
-                        Limite máximo configurado
+                      <span className="text-[10px] text-slate-500 dark:text-zinc-400 block">
+                        Cota autorizada
                       </span>
                     </div>
 
                     {/* Chip 4: Ajustar Plano e Módulos */}
                     <div
                       onClick={() => onEditTenantPlan && onEditTenantPlan(selectedRawTenant)}
-                      className="p-4 rounded-xl border-2 border-dashed border-[#262630] hover:border-[#D4A373]/40 bg-black/20 hover:bg-black/40 flex flex-col items-center justify-center text-center cursor-pointer transition group"
+                      className="p-3.5 rounded-lg border border-slate-200 dark:border-zinc-800 hover:border-slate-400 dark:hover:border-zinc-600 bg-white dark:bg-zinc-900 flex flex-col items-center justify-center text-center cursor-pointer transition shadow-xs group"
                     >
-                      <Crown className="w-5 h-5 text-[#D4A373] group-hover:scale-110 transition" />
-                      <span className="text-[11px] font-bold text-zinc-300 group-hover:text-[#D4A373] mt-1">
-                        Ajustar Plano e Módulos
+                      <Crown className="w-4 h-4 text-slate-600 dark:text-zinc-400 group-hover:text-slate-900 dark:group-hover:text-zinc-100 transition" />
+                      <span className="text-xs font-medium text-slate-700 dark:text-zinc-300 group-hover:text-slate-900 dark:group-hover:text-zinc-100 mt-1">
+                        Plano e Módulos
                       </span>
                     </div>
                   </div>
@@ -1212,86 +1237,77 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
                   {/* ========================================================= */}
                   {/* MATRIZ DE RECURSOS & GOVERNANÇA (VITALÍCIO & GATEWAYS)     */}
                   {/* ========================================================= */}
-                  <div className="p-5 rounded-2xl bg-black/40 border border-[#D4A373]/30 shadow-xl space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#262630]">
+                  <div className="p-4 rounded-xl bg-slate-50/50 dark:bg-zinc-900/30 border border-slate-200 dark:border-zinc-800 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-200 dark:border-zinc-800">
                       <div>
                         <div className="flex items-center gap-2">
-                          <SlidersHorizontal className="w-4 h-4 text-[#D4A373]" />
-                          <h3 className="text-sm font-bold text-white tracking-wide uppercase">
-                            Matriz de Recursos & Governança de Gateways
+                          <SlidersHorizontal className="w-4 h-4 text-slate-600 dark:text-zinc-400" />
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-900 dark:text-zinc-100">
+                            Governança de Recursos & Gateways
                           </h3>
                           {selectedRawTenant.is_vitalicio ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#D4A373]/20 text-[#D4A373] border border-[#D4A373]/40">
-                              Parceiro Vitalício Ativo
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/40">
+                              Parceiro Vitalício
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-800 text-zinc-400 border border-zinc-700">
-                              Assinante SaaS Padrão
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700">
+                              Assinante Padrão
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-[#8E8E98] mt-0.5">
-                          Controle granular e independente de Feature Flags por barbearia e isolamento arquitetural de Gateways.
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                          Ativação independente de recursos por barbearia e isolamento de Gateways.
                         </p>
                       </div>
-
-                      {selectedRawTenant.is_vitalicio && (
-                        <div className="px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 text-right">
-                          <span className="text-[10px] font-bold text-[#D4A373] uppercase tracking-wider block">
-                            Isenção SaaS Naville
-                          </span>
-                          <span className="text-xs font-mono text-zinc-300">Stripe B2B Desativado</span>
-                        </div>
-                      )}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                      {/* 1. Toggle: Isenção de Mensalidade (Vitalício / Beta Tester) */}
-                      <div className={`p-4 rounded-xl border transition ${selectedRawTenant.is_vitalicio ? 'bg-[#D4A373]/10 border-[#D4A373]/50' : 'bg-[#141418] border-[#262630]'}`}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {/* 1. Toggle: Isenção de Mensalidade */}
+                      <div className="p-3.5 rounded-lg bg-white dark:bg-[#121215] border border-slate-200 dark:border-zinc-800 space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-0.5">
                             <div className="flex items-center gap-1.5">
-                              <ShieldCheck className={`w-4 h-4 ${selectedRawTenant.is_vitalicio ? 'text-[#D4A373]' : 'text-zinc-500'}`} weight="fill" />
-                              <span className="text-xs font-bold text-white">Isenção de Mensalidade (Vitalício / Beta Tester)</span>
+                              <ShieldCheck className="w-4 h-4 text-slate-600 dark:text-zinc-400" weight="fill" />
+                              <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100">Isenção de Mensalidade (Vitalício)</span>
                             </div>
-                            <p className="text-[11px] text-zinc-400 leading-relaxed">
-                              Isenta permanentemente a barbearia da mensalidade SaaS da Naville (bloqueia faturas e avisos de atraso). Não desbloqueia módulos automaticamente.
+                            <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-tight">
+                              Isenta de faturas SaaS da Naville.
                             </p>
                           </div>
                           <button
                             type="button"
                             onClick={handleToggleVitalicio}
-                            className={`shrink-0 text-2xl transition cursor-pointer ${selectedRawTenant.is_vitalicio ? 'text-[#D4A373]' : 'text-zinc-600 hover:text-zinc-400'}`}
+                            className={`shrink-0 text-2xl transition cursor-pointer ${selectedRawTenant.is_vitalicio ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-zinc-600'}`}
                             title="Alternar Isenção de Mensalidade"
                           >
                             {selectedRawTenant.is_vitalicio ? (
-                              <ToggleRight className="w-8 h-8 text-[#D4A373]" weight="fill" />
+                              <ToggleRight className="w-7 h-7" weight="fill" />
                             ) : (
-                              <ToggleLeft className="w-8 h-8 text-zinc-600" />
+                              <ToggleLeft className="w-7 h-7" />
                             )}
                           </button>
                         </div>
-                        <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between text-[10px]">
-                          <span className="text-zinc-500 font-mono">Gateway SaaS (Stripe):</span>
-                          <span className={`font-bold font-mono ${selectedRawTenant.is_vitalicio ? 'text-[#D4A373]' : 'text-emerald-400'}`}>
-                            {selectedRawTenant.is_vitalicio ? 'Isento / Ignorado' : 'Cobrança Ativa'}
+                        <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 text-[10px] flex items-center justify-between">
+                          <span className="text-slate-500 dark:text-zinc-400">Status Gateway SaaS:</span>
+                          <span className={`font-mono font-medium ${selectedRawTenant.is_vitalicio ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                            {selectedRawTenant.is_vitalicio ? 'Isento' : 'Cobrança Ativa'}
                           </span>
                         </div>
                       </div>
 
-                      {/* 2. Input Numérico / Stepper: Cadeiras / Barbeiros Permitidos */}
-                      <div className="p-4 rounded-xl bg-[#141418] border border-[#262630] space-y-2">
+                      {/* 2. Limite de Cadeiras */}
+                      <div className="p-3.5 rounded-lg bg-white dark:bg-[#121215] border border-slate-200 dark:border-zinc-800 space-y-1">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
-                            <UsersThree className="w-4 h-4 text-[#D4A373]" />
-                            <span className="text-xs font-bold text-white">Cadeiras / Barbeiros Permitidos</span>
+                            <UsersThree className="w-4 h-4 text-slate-600 dark:text-zinc-400" />
+                            <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100">Cadeiras Permitidas</span>
                           </div>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1">
                             <button
                               type="button"
                               onClick={() => handleUpdateLimiteProfissionais((selectedRawTenant.limite_profissionais || selectedRawTenant.max_barbeiros || 1) - 1)}
                               disabled={(selectedRawTenant.limite_profissionais || selectedRawTenant.max_barbeiros || 1) <= 1}
-                              className="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed text-white flex items-center justify-center text-sm font-bold transition cursor-pointer"
+                              className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed text-slate-700 dark:text-zinc-200 flex items-center justify-center text-xs font-bold transition cursor-pointer"
                               title="Diminuir cota"
                             >
                               -
@@ -1302,182 +1318,282 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
                               max={50}
                               value={selectedRawTenant.limite_profissionais || selectedRawTenant.max_barbeiros || 1}
                               onChange={(e) => handleUpdateLimiteProfissionais(parseInt(e.target.value) || 1)}
-                              className="w-12 text-center py-1 rounded-lg bg-black/60 border border-white/10 font-mono font-extrabold text-sm text-[#D4A373] focus:outline-none focus:border-[#D4A373]"
+                              className="w-10 text-center py-0.5 rounded bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 font-mono font-bold text-xs text-slate-900 dark:text-zinc-100 focus:outline-none"
                             />
                             <button
                               type="button"
                               onClick={() => handleUpdateLimiteProfissionais((selectedRawTenant.limite_profissionais || selectedRawTenant.max_barbeiros || 1) + 1)}
-                              className="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white flex items-center justify-center text-sm font-bold transition cursor-pointer"
+                              className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 flex items-center justify-center text-xs font-bold transition cursor-pointer"
                               title="Aumentar cota"
                             >
                               +
                             </button>
                           </div>
                         </div>
-                        <p className="text-[11px] text-zinc-400 leading-relaxed">
-                          Trava de limite de profissionais ativos. Se atingido, o backend bloqueia com código 400 e solicita contato com suporte.
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-tight">
+                          Limite de barbeiros ativos cadastráveis.
                         </p>
-                        <div className="mt-1 pt-2 border-t border-white/5 flex items-center justify-between text-[10px]">
-                          <span className="text-zinc-500 font-mono">Limite Máximo Cadastrado:</span>
-                          <span className="text-white font-mono font-bold">
-                            {(selectedRawTenant.limite_profissionais || selectedRawTenant.max_barbeiros || 1)} profissional(is)
-                          </span>
-                        </div>
                       </div>
 
-                      {/* 3. Toggle: Clube de Assinaturas (Mercado Pago) */}
-                      <div className={`p-4 rounded-xl border transition ${selectedRawTenant.recurso_clube_ativo ? 'bg-sky-500/10 border-sky-500/40' : 'bg-[#141418] border-[#262630]'}`}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-1">
+                      {/* 3. Toggle: Clube de Assinaturas */}
+                      <div className="p-3.5 rounded-lg bg-white dark:bg-[#121215] border border-slate-200 dark:border-zinc-800 space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-0.5">
                             <div className="flex items-center gap-1.5">
-                              <Crown className={`w-4 h-4 ${selectedRawTenant.recurso_clube_ativo ? 'text-sky-400' : 'text-zinc-500'}`} weight="fill" />
-                              <span className="text-xs font-bold text-white">Clube de Assinaturas (Mercado Pago)</span>
+                              <Crown className="w-4 h-4 text-slate-600 dark:text-zinc-400" weight="fill" />
+                              <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100">Clube de Assinaturas</span>
                             </div>
-                            <p className="text-[11px] text-zinc-400 leading-relaxed">
-                              Permite ao dono cobrar assinaturas de clientes finais. O dinheiro cai 100% no Mercado Pago do dono sem comissão da Naville.
+                            <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-tight">
+                              Permite ao dono cobrar assinaturas de clientes.
                             </p>
                           </div>
                           <button
                             type="button"
                             onClick={handleToggleRecursoClube}
-                            className={`shrink-0 text-2xl transition cursor-pointer ${selectedRawTenant.recurso_clube_ativo ? 'text-sky-400' : 'text-zinc-600 hover:text-zinc-400'}`}
+                            className={`shrink-0 text-2xl transition cursor-pointer ${selectedRawTenant.recurso_clube_ativo ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-zinc-600'}`}
                             title="Alternar Clube de Assinaturas"
                           >
                             {selectedRawTenant.recurso_clube_ativo ? (
-                              <ToggleRight className="w-8 h-8 text-sky-400" weight="fill" />
+                              <ToggleRight className="w-7 h-7" weight="fill" />
                             ) : (
-                              <ToggleLeft className="w-8 h-8 text-zinc-600" />
+                              <ToggleLeft className="w-7 h-7" />
                             )}
                           </button>
                         </div>
-                        <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between text-[10px]">
-                          <span className="text-zinc-500 font-mono">Gateway do Dono (Mercado Pago):</span>
-                          <span className={`font-bold font-mono ${selectedRawTenant.recurso_clube_ativo ? 'text-sky-400' : 'text-zinc-500'}`}>
-                            {selectedRawTenant.recurso_clube_ativo ? '100% Direto ao Dono (0% Taxa Naville)' : 'Desativado'}
+                        <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 text-[10px] flex items-center justify-between">
+                          <span className="text-slate-500 dark:text-zinc-400">Gateway do Dono:</span>
+                          <span className="font-mono font-medium text-slate-700 dark:text-zinc-300">
+                            {selectedRawTenant.recurso_clube_ativo ? '100% Direto ao Dono' : 'Desativado'}
                           </span>
                         </div>
                       </div>
 
                       {/* 4. Toggle: Fluxo Financeiro / Caixa */}
-                      <div className={`p-4 rounded-xl border transition ${selectedRawTenant.recurso_financeiro_avancado !== false ? 'bg-emerald-500/10 border-emerald-500/40' : 'bg-[#141418] border-[#262630]'}`}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-1">
+                      <div className="p-3.5 rounded-lg bg-white dark:bg-[#121215] border border-slate-200 dark:border-zinc-800 space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-0.5">
                             <div className="flex items-center gap-1.5">
-                              <Wallet className={`w-4 h-4 ${selectedRawTenant.recurso_financeiro_avancado !== false ? 'text-emerald-400' : 'text-zinc-500'}`} weight="fill" />
-                              <span className="text-xs font-bold text-white">Fluxo Financeiro / Caixa</span>
+                              <Wallet className="w-4 h-4 text-slate-600 dark:text-zinc-400" weight="fill" />
+                              <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100">Fluxo Financeiro / Caixa</span>
                             </div>
-                            <p className="text-[11px] text-zinc-400 leading-relaxed">
-                              Libera no painel do dono os módulos de PDV Balcão, Sangrias de Caixa, Controle de Gastos e DRE de despesas.
+                            <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-tight">
+                              PDV, Sangrias e Controle de Gastos no painel.
                             </p>
                           </div>
                           <button
                             type="button"
                             onClick={handleToggleRecursoFinanceiro}
-                            className={`shrink-0 text-2xl transition cursor-pointer ${selectedRawTenant.recurso_financeiro_avancado !== false ? 'text-emerald-400' : 'text-zinc-600 hover:text-zinc-400'}`}
+                            className={`shrink-0 text-2xl transition cursor-pointer ${selectedRawTenant.recurso_financeiro_avancado !== false ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-zinc-600'}`}
                             title="Alternar Fluxo Financeiro"
                           >
                             {selectedRawTenant.recurso_financeiro_avancado !== false ? (
-                              <ToggleRight className="w-8 h-8 text-emerald-400" weight="fill" />
+                              <ToggleRight className="w-7 h-7" weight="fill" />
                             ) : (
-                              <ToggleLeft className="w-8 h-8 text-zinc-600" />
+                              <ToggleLeft className="w-7 h-7" />
                             )}
                           </button>
                         </div>
-                        <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between text-[10px]">
-                          <span className="text-zinc-500 font-mono">Módulos PDV & Caixa:</span>
-                          <span className={`font-bold font-mono ${selectedRawTenant.recurso_financeiro_avancado !== false ? 'text-emerald-400' : 'text-zinc-500'}`}>
-                            {selectedRawTenant.recurso_financeiro_avancado !== false ? 'Habilitado' : 'Oculto no Painel'}
+                        <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 text-[10px] flex items-center justify-between">
+                          <span className="text-slate-500 dark:text-zinc-400">Módulos PDV & Caixa:</span>
+                          <span className="font-mono font-medium text-slate-700 dark:text-zinc-300">
+                            {selectedRawTenant.recurso_financeiro_avancado !== false ? 'Habilitado' : 'Oculto'}
                           </span>
                         </div>
                       </div>
 
-                      {/* 5. Toggle: WhatsApp Engine (Nativo) */}
-                      <div className={`p-4 rounded-xl border transition md:col-span-2 ${selectedRawTenant.whatsapp_ativo !== false ? 'bg-[#34D399]/10 border-[#34D399]/40' : 'bg-[#141418] border-[#262630]'}`}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-1">
+                      {/* 5. Toggle: WhatsApp Engine */}
+                      <div className="p-3.5 rounded-lg bg-white dark:bg-[#121215] border border-slate-200 dark:border-zinc-800 md:col-span-2 space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-0.5">
                             <div className="flex items-center gap-1.5">
-                              <ChatDots className={`w-4 h-4 ${selectedRawTenant.whatsapp_ativo !== false ? 'text-[#34D399]' : 'text-zinc-500'}`} weight="fill" />
-                              <span className="text-xs font-bold text-white">WhatsApp Engine (Nativo)</span>
+                              <ChatDots className="w-4 h-4 text-slate-600 dark:text-zinc-400" weight="fill" />
+                              <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100">Motor WhatsApp Nativo</span>
                             </div>
-                            <p className="text-[11px] text-zinc-400 leading-relaxed">
-                              Motor nativo de disparos via Evolution API v2, confirmação de agendamento, lembrete 2h antes e sistema humanizado anti-ban.
+                            <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-tight">
+                              Evolution API v2, confirmação automática e atraso anti-ban.
                             </p>
                           </div>
                           <button
                             type="button"
                             onClick={handleToggleWhatsappAtivo}
-                            className={`shrink-0 text-2xl transition cursor-pointer ${selectedRawTenant.whatsapp_ativo !== false ? 'text-[#34D399]' : 'text-zinc-600 hover:text-zinc-400'}`}
+                            className={`shrink-0 text-2xl transition cursor-pointer ${selectedRawTenant.whatsapp_ativo !== false ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-zinc-600'}`}
                             title="Alternar Motor WhatsApp"
                           >
                             {selectedRawTenant.whatsapp_ativo !== false ? (
-                              <ToggleRight className="w-8 h-8 text-[#34D399]" weight="fill" />
+                              <ToggleRight className="w-7 h-7" weight="fill" />
                             ) : (
-                              <ToggleLeft className="w-8 h-8 text-zinc-600" />
+                              <ToggleLeft className="w-7 h-7" />
                             )}
                           </button>
-                        </div>
-                        <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between text-[10px]">
-                          <span className="text-zinc-500 font-mono">Instância Evolution API:</span>
-                          <span className={`font-bold font-mono ${selectedRawTenant.whatsapp_ativo !== false ? 'text-[#34D399]' : 'text-zinc-500'}`}>
-                            {selectedRawTenant.whatsapp_ativo !== false ? 'Instância Ativa & Conectável' : 'Desabilitado'}
-                          </span>
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Telemetria Operacional & WhatsApp Evolution Cluster */}
-                  <div className="p-4 rounded-xl bg-black/30 border border-[#262630] space-y-3">
+                  <div className="p-4 rounded-xl bg-slate-50/60 dark:bg-zinc-900/40 border border-slate-200 dark:border-zinc-800 space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-zinc-300 uppercase tracking-wide">
+                      <span className="text-xs font-semibold text-slate-700 dark:text-zinc-300 uppercase tracking-wide">
                         API de WhatsApp e Motor Anti-Ban
                       </span>
-                      <span className="text-[11px] text-[#8E8E98] font-mono">
-                        Instância: <strong className="text-white">naville_barbearia_{selectedRecord.tenantId}</strong>
+                      <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
+                        Instância: <strong className="text-slate-900 dark:text-zinc-100">naville_barbearia_{selectedRecord.tenantId}</strong>
                       </span>
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
-                      <div className="p-2.5 rounded-lg bg-[#1B1B22] border border-[#262630]">
-                        <span className="text-[10px] text-[#8E8E98] block uppercase font-bold">Sessão WhatsApp (Baileys)</span>
-                        <span className={`font-bold mt-0.5 block ${selectedRawTenant.whatsappStatus === 'open' ? 'text-[#34D399]' : 'text-[#F87171]'}`}>
-                          {selectedRawTenant.whatsappStatus === 'open' ? '● Conectado e Operacional' : '○ Desconectado'}
+                      <div className="p-2.5 rounded-lg bg-white dark:bg-[#121215] border border-slate-200 dark:border-zinc-800">
+                        <span className="text-[10px] text-slate-500 dark:text-zinc-400 block uppercase font-medium">Sessão Baileys</span>
+                        <span className={`font-semibold mt-0.5 block ${selectedRawTenant?.whatsappStatus === 'open' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-zinc-500'}`}>
+                          {selectedRawTenant?.whatsappStatus === 'open' ? '● Conectado' : '○ Desconectado'}
                         </span>
                       </div>
 
-                      <div className="p-2.5 rounded-lg bg-[#1B1B22] border border-[#262630]">
-                        <span className="text-[10px] text-[#8E8E98] block uppercase font-bold">Atraso Humanizado Anti-Ban</span>
-                        <span className="font-mono font-bold text-white mt-0.5 block">35 segundos dinâmico</span>
+                      <div className="p-2.5 rounded-lg bg-white dark:bg-[#121215] border border-slate-200 dark:border-zinc-800">
+                        <span className="text-[10px] text-slate-500 dark:text-zinc-400 block uppercase font-medium">Anti-Ban</span>
+                        <span className="font-mono font-medium text-slate-800 dark:text-zinc-200 mt-0.5 block">35s dinâmico</span>
                       </div>
 
-                      <div className="p-2.5 rounded-lg bg-[#1B1B22] border border-[#262630]">
-                        <span className="text-[10px] text-[#8E8E98] block uppercase font-bold">Simulação de Digitação</span>
-                        <span className="font-bold text-[#34D399] mt-0.5 block">4 segundos ativo</span>
+                      <div className="p-2.5 rounded-lg bg-white dark:bg-[#121215] border border-slate-200 dark:border-zinc-800">
+                        <span className="text-[10px] text-slate-500 dark:text-zinc-400 block uppercase font-medium">Digitação</span>
+                        <span className="font-medium text-emerald-600 dark:text-emerald-400 mt-0.5 block">4s ativo</span>
                       </div>
 
-                      <div className="p-2.5 rounded-lg bg-[#1B1B22] border border-[#262630]">
-                        <span className="text-[10px] text-[#8E8E98] block uppercase font-bold">Disparos no Mês</span>
-                        <span className="font-mono font-bold text-[#D4A373] mt-0.5 block">
-                          {selectedRecord.evolutionMessagesCount} mensagens
+                      <div className="p-2.5 rounded-lg bg-white dark:bg-[#121215] border border-slate-200 dark:border-zinc-800">
+                        <span className="text-[10px] text-slate-500 dark:text-zinc-400 block uppercase font-medium">Disparos no Mês</span>
+                        <span className="font-mono font-medium text-slate-900 dark:text-zinc-100 mt-0.5 block">
+                          {selectedRecord.evolutionMessagesCount}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Barra de Ações Rápidas de Governança */}
-                  <div className="pt-4 border-t border-[#262630] flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                      {/* Kill Switch Toggle */}
+                  {/* Links Oficiais por Slug */}
+                  <div className="p-4 rounded-xl bg-white dark:bg-zinc-900/40 border border-slate-200 dark:border-zinc-800 space-y-2.5">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100 uppercase tracking-wider flex items-center gap-1.5">
+                        <LinkSimple className="w-4 h-4 text-slate-500 dark:text-zinc-400" />
+                        <span>Links de Acesso por Slug</span>
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-500 dark:text-zinc-400">
+                        Login: <strong className="text-slate-800 dark:text-zinc-200">{(selectedRawTenant?.email_financeiro) || (selectedRecord?.slug ? `dono@${selectedRecord.slug}.com` : 'dono@naville.com')}</strong>
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
+                      <button
+                        type="button"
+                        onClick={() => window.open(`/b/${selectedRecord.slug}`, '_blank')}
+                        className="p-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 text-left transition cursor-pointer"
+                      >
+                        <span className="text-[10px] text-slate-500 dark:text-zinc-400 block font-sans font-medium uppercase">1. Cliente (/b)</span>
+                        <span className="text-slate-900 dark:text-zinc-100 font-semibold truncate block mt-0.5">/b/{selectedRecord.slug}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => window.open(`/b/${selectedRecord.slug}/admin`, '_blank')}
+                        className="p-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 text-left transition cursor-pointer"
+                      >
+                        <span className="text-[10px] text-slate-500 dark:text-zinc-400 block font-sans font-medium uppercase">2. Painel do Dono</span>
+                        <span className="text-slate-900 dark:text-zinc-100 font-semibold truncate block mt-0.5">/b/{selectedRecord.slug}/admin</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => window.open(`/b/${selectedRecord.slug}/barbeiro`, '_blank')}
+                        className="p-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 text-left transition cursor-pointer"
+                      >
+                        <span className="text-[10px] text-slate-500 dark:text-zinc-400 block font-sans font-medium uppercase">3. Cadeira Barbeiro</span>
+                        <span className="text-slate-900 dark:text-zinc-100 font-semibold truncate block mt-0.5">/b/{selectedRecord.slug}/barbeiro</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Histórico de Faturas & Recibos deste Estabelecimento */}
+                  <div className="p-4 rounded-xl bg-white dark:bg-zinc-900/40 border border-slate-200 dark:border-zinc-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Receipt className="w-4 h-4 text-slate-600 dark:text-zinc-400" weight="fill" />
+                        <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100 uppercase tracking-wider">
+                          Faturas & Assinaturas SaaS
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-mono text-slate-500 dark:text-zinc-400">
+                        {invoices.filter((i) => i.tenantId === selectedRawTenant?.id).length} fatura(s)
+                      </span>
+                    </div>
+
+                    {invoices.filter((i) => i.tenantId === selectedRawTenant?.id).length === 0 ? (
+                      <div className="text-center py-4 text-xs text-slate-400 dark:text-zinc-500">
+                        Nenhuma fatura emitida para esta barbearia.
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                        {invoices
+                          .filter((i) => i.tenantId === selectedRawTenant.id)
+                          .map((inv) => {
+                            const isPaid = inv.status === 'paid';
+                            const isOverdue = inv.status === 'overdue';
+                            return (
+                              <div
+                                key={inv.id}
+                                className="p-3 rounded-lg bg-slate-50/70 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-3 text-xs"
+                              >
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-semibold text-slate-900 dark:text-zinc-100">{inv.invoiceNumber}</span>
+                                    <span
+                                      className={`px-2 py-0.5 rounded-md text-[10px] font-medium border ${
+                                        isPaid
+                                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40'
+                                          : isOverdue
+                                          ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/40'
+                                          : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/40'
+                                      }`}
+                                    >
+                                      {isPaid ? 'Paga' : isOverdue ? 'Vencida' : 'Pendente'}
+                                    </span>
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 font-mono">
+                                    Vencimento: {formatDatePtBR(inv.dueDate)} {inv.paidAt && `· Paga em: ${formatDatePtBR(inv.paidAt)}`}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold font-mono text-slate-900 dark:text-zinc-100 tabular-nums">
+                                    {formatCurrency(inv.amount)}
+                                  </span>
+                                  {isPaid && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedReceiptInvoice(inv)}
+                                      className="h-7 px-2.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 font-medium text-[11px] flex items-center gap-1 transition cursor-pointer"
+                                      title="Visualizar Comprovante / Recibo"
+                                    >
+                                      <Receipt className="w-3.5 h-3.5" />
+                                      <span>Recibo</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Barra de Ações de Governança */}
+                  <div className="pt-4 border-t border-slate-200 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                      {/* Kill Switch Toggle Sóbrio */}
                       <button
                         type="button"
                         onClick={handleToggleBlock}
-                        className={`h-10 px-4 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border cursor-pointer ${
-                          selectedRawTenant.status === 'blocked'
-                            ? 'bg-[#34D399]/20 hover:bg-[#34D399]/30 text-[#34D399] border-[#34D399]/40'
-                            : 'bg-[#F87171]/20 hover:bg-[#F87171]/30 text-[#F87171] border-[#F87171]/40'
+                        className={`h-9 px-3.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 border cursor-pointer ${
+                          selectedRawTenant?.status === 'blocked'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40 hover:bg-emerald-100'
+                            : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/40 hover:bg-rose-100'
                         }`}
                       >
-                        {selectedRawTenant.status === 'blocked' ? (
+                        {selectedRawTenant?.status === 'blocked' ? (
                           <>
                             <LockKeyOpen className="w-4 h-4" />
                             <span>Desbloquear Estabelecimento</span>
@@ -1490,16 +1606,29 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
                         )}
                       </button>
 
+                      {/* Botão Gerar Fatura */}
+                      {onOpenGenerateInvoice && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenGenerateInvoice(selectedRawTenant)}
+                          className="h-9 px-3 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                          title="Gerar fatura para esta barbearia"
+                        >
+                          <Receipt className="w-4 h-4" weight="bold" />
+                          <span>+ Fatura</span>
+                        </button>
+                      )}
+
                       {/* Contato WhatsApp */}
                       <button
                         type="button"
                         onClick={() => {
-                          window.open(`https://wa.me/55${selectedRecord.ownerPhone.replace(/\D/g, '')}`, '_blank');
+                          window.open(`https://wa.me/55${(selectedRecord?.ownerPhone || '').replace(/\D/g, '')}`, '_blank');
                         }}
-                        className="w-10 h-10 rounded-xl bg-black/60 hover:bg-zinc-800 border border-[#262630] text-[#34D399] flex items-center justify-center transition cursor-pointer shrink-0"
-                        title="Conversar com o Responsável no WhatsApp"
+                        className="w-9 h-9 rounded-lg bg-white dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 text-emerald-600 dark:text-emerald-400 flex items-center justify-center transition cursor-pointer shrink-0 shadow-xs"
+                        title="Conversar no WhatsApp"
                       >
-                        <WhatsAppIcon variant="official" size={18} />
+                        <WhatsAppIcon variant="official" size={16} />
                       </button>
 
                       {/* Link público /b/:slug */}
@@ -1508,31 +1637,47 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
                         onClick={() => {
                           window.open(`/b/${selectedRecord.slug}`, '_blank');
                         }}
-                        className="h-10 px-3 rounded-xl bg-black/60 hover:bg-zinc-800 border border-[#262630] text-zinc-300 hover:text-white text-xs font-mono flex items-center gap-1.5 transition cursor-pointer"
-                        title="Abrir página pública de agendamento"
+                        className="h-9 px-3 rounded-lg bg-white dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 text-xs font-mono flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                        title="Abrir página pública"
                       >
-                        <Globe className="w-4 h-4 text-[#D4A373]" />
+                        <Globe className="w-3.5 h-3.5" />
                         <span>/b/{selectedRecord.slug}</span>
                       </button>
                     </div>
 
-                    {/* Botão Primário: Acessar Painel da Barbearia como Dono (Impersonation) */}
+                    {/* Botão Primário: Acessar Painel da Barbearia */}
                     <button
                       type="button"
                       onClick={() => {
                         onSelectTenant(selectedRecord.tenantId);
                         onNavigateTenantAdmin(selectedRecord.tenantId);
                       }}
-                      className="w-full sm:w-auto h-11 px-6 rounded-xl bg-gradient-to-r from-[#D4A373] to-[#B8860B] hover:from-[#e5bd47] hover:to-[#c49215] text-black text-xs font-extrabold flex items-center justify-center gap-2 transition active:scale-95 shadow-xl shadow-amber-500/20 cursor-pointer"
+                      className="w-full sm:w-auto h-9 px-5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-[0.99] shadow-xs cursor-pointer"
                     >
                       <span>Acessar Painel da Barbearia</span>
-                      <ArrowRight className="w-4 h-4" weight="bold" />
+                      <ArrowRight className="w-3.5 h-3.5" weight="bold" />
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="py-24 text-center text-[#8E8E98]">
-                  Selecione um estabelecimento na lista à esquerda para inspecionar os detalhes.
+                <div className="py-20 px-6 text-center text-slate-500 dark:text-zinc-400 space-y-4">
+                  <Storefront className="w-12 h-12 mx-auto text-slate-300 dark:text-zinc-700" />
+                  <div className="space-y-1">
+                    <p className="text-base font-semibold text-slate-900 dark:text-zinc-100">Nenhuma barbearia selecionada</p>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-md mx-auto">
+                      Selecione um estabelecimento na lista à esquerda ou clique em &ldquo;Nova Barbearia&rdquo; para iniciar.
+                    </p>
+                  </div>
+                  {onNewTenant && (
+                    <button
+                      type="button"
+                      onClick={onNewTenant}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-semibold text-xs shadow-xs hover:bg-slate-800 dark:hover:bg-white transition cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" weight="bold" />
+                      <span>Cadastrar Barbearia</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1541,7 +1686,7 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
       )}
 
       {/* ========================================================= */}
-      {/* 6. SUB-VISÕES (QUANDO CLICADO NAS DEMAIS PÍLULAS DA NAV)   */}
+      {/* 6. SUB-VISÕES (QUANDO CLICADO NAS DEMAIS ABAS DA NAV)     */}
       {/* ========================================================= */}
       {activeTab === 'tenants' && (
         <section className="space-y-4">
@@ -1549,48 +1694,48 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
             {tenants.map((t) => (
               <div
                 key={t.id}
-                className="p-5 rounded-2xl bg-[#141418] border border-[#262630] space-y-4 shadow-xl hover:border-[#D4A373]/40 transition"
+                className="p-5 rounded-xl bg-white border border-slate-200 dark:bg-[#121215] dark:border-zinc-800 space-y-4 shadow-xs hover:border-slate-300 dark:hover:border-zinc-700 transition"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-10 h-10 rounded-xl bg-[#D4A373] text-black font-extrabold flex items-center justify-center text-xs">
+                    <div className="w-9 h-9 rounded-lg bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-bold flex items-center justify-center text-xs">
                       {t.name.substring(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <h3 className="font-bold text-white text-sm">{t.name}</h3>
-                      <span className="text-[10px] text-[#D4A373] font-mono">/b/{t.slug}</span>
+                      <h3 className="font-semibold text-slate-900 dark:text-zinc-100 text-sm">{t.name}</h3>
+                      <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono">/b/{t.slug}</span>
                     </div>
                   </div>
 
                   <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase ${
                       t.status === 'active'
-                        ? 'bg-[#34D399]/15 text-[#34D399] border border-[#34D399]/30'
-                        : 'bg-[#F87171]/20 text-[#F87171] border border-[#F87171]/40'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40'
+                        : 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/40'
                     }`}
                   >
                     {t.status}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs bg-black/40 p-3 rounded-xl border border-[#262630]">
+                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 dark:bg-zinc-900/60 p-3 rounded-lg border border-slate-200 dark:border-zinc-800">
                   <div>
-                    <span className="text-[10px] text-[#8E8E98] block">Plano</span>
-                    <span className="font-bold text-white uppercase">{t.plan}</span>
+                    <span className="text-[10px] text-slate-500 dark:text-zinc-400 block font-medium">Plano</span>
+                    <span className="font-semibold text-slate-800 dark:text-zinc-200 uppercase">{t.plan}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-[#8E8E98] block">Cadeiras</span>
-                    <span className="font-bold text-white">{t.max_barbeiros || 1} profissionais</span>
+                    <span className="text-[10px] text-slate-500 dark:text-zinc-400 block font-medium">Cadeiras</span>
+                    <span className="font-semibold text-slate-800 dark:text-zinc-200">{t.max_barbeiros || 1} profissionais</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-[#8E8E98] block">WhatsApp</span>
-                    <span className="font-bold text-[#34D399]">
+                    <span className="text-[10px] text-slate-500 dark:text-zinc-400 block font-medium">WhatsApp</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                       {t.whatsappStatus === 'open' ? '● Conectado' : '○ Desconectado'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-[#8E8E98] block">Mensalidade SaaS</span>
-                    <span className="font-mono font-bold text-[#D4A373]">
+                    <span className="text-[10px] text-slate-500 dark:text-zinc-400 block font-medium">Mensalidade</span>
+                    <span className="font-mono font-semibold text-slate-900 dark:text-zinc-100">
                       {formatCurrency(t.planBasePrice || 89.9)}
                     </span>
                   </div>
@@ -1603,15 +1748,15 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
                       onSelectTenant(t.id);
                       onNavigateTenantAdmin(t.id);
                     }}
-                    className="flex-1 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition text-center"
+                    className="flex-1 py-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white font-semibold text-xs transition text-center shadow-xs cursor-pointer"
                   >
-                    Acessar Painel da Barbearia
+                    Acessar Painel
                   </button>
                   {onEditTenantPlan && (
                     <button
                       type="button"
                       onClick={() => onEditTenantPlan(t)}
-                      className="px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs border border-white/5"
+                      className="px-3 py-2 rounded-lg bg-white hover:bg-slate-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 font-medium text-xs border border-slate-200 dark:border-zinc-700 transition cursor-pointer"
                     >
                       Plano
                     </button>
@@ -1625,32 +1770,32 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
 
       {activeTab === 'metrics' && (
         <section className="space-y-4">
-          <div className="p-6 rounded-2xl bg-[#141418] border border-[#262630] space-y-4">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <ChartLineUp className="w-5 h-5 text-[#D4A373]" />
+          <div className="p-6 rounded-xl bg-white border border-slate-200 dark:bg-[#121215] dark:border-zinc-800 space-y-4 shadow-xs">
+            <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+              <ChartLineUp className="w-5 h-5 text-slate-600 dark:text-zinc-400" />
               <span>Projeções Financeiras da Plataforma SaaS</span>
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-4 rounded-xl bg-black/40 border border-[#262630]">
-                <span className="text-xs text-[#8E8E98] block uppercase">Receita Recorrente Anualizada (ARR)</span>
-                <span className="text-2xl font-mono font-extrabold text-[#D4A373] mt-1 block">
+              <div className="p-4 rounded-lg bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800">
+                <span className="text-xs text-slate-500 dark:text-zinc-400 block uppercase font-medium">Receita Anualizada (ARR)</span>
+                <span className="text-2xl font-mono font-bold text-slate-900 dark:text-zinc-100 mt-1 block">
                   {formatCurrency(biMetrics.arr)}
                 </span>
-                <span className="text-[11px] text-[#34D399] mt-1 block">+12.8% em relação ao ano anterior</span>
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 block font-medium">+12.8% em relação ao ano anterior</span>
               </div>
-              <div className="p-4 rounded-xl bg-black/40 border border-[#262630]">
-                <span className="text-xs text-[#8E8E98] block uppercase">Taxa de Cancelamento (Churn)</span>
-                <span className="text-2xl font-mono font-extrabold text-[#34D399] mt-1 block">
+              <div className="p-4 rounded-lg bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800">
+                <span className="text-xs text-slate-500 dark:text-zinc-400 block uppercase font-medium">Taxa de Cancelamento (Churn)</span>
+                <span className="text-2xl font-mono font-bold text-emerald-600 dark:text-emerald-400 mt-1 block">
                   {biMetrics.churnRate.toFixed(1)}%
                 </span>
-                <span className="text-[11px] text-[#8E8E98] mt-1 block">Abaixo da meta de tolerância de 5%</span>
+                <span className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 block">Abaixo do limite de 5%</span>
               </div>
-              <div className="p-4 rounded-xl bg-black/40 border border-[#262630]">
-                <span className="text-xs text-[#8E8E98] block uppercase">Valor Vitalício por Barbearia (LTV)</span>
-                <span className="text-2xl font-mono font-extrabold text-white mt-1 block">
+              <div className="p-4 rounded-lg bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800">
+                <span className="text-xs text-slate-500 dark:text-zinc-400 block uppercase font-medium">LTV Estimado</span>
+                <span className="text-2xl font-mono font-bold text-slate-900 dark:text-zinc-100 mt-1 block">
                   R$ 3.240,00
                 </span>
-                <span className="text-[11px] text-[#D4A373] mt-1 block">Tempo médio estimado de permanência: 24 meses</span>
+                <span className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 block">Tempo médio estimado: 24 meses</span>
               </div>
             </div>
           </div>
@@ -1659,42 +1804,46 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
 
       {activeTab === 'evolution' && (
         <section className="space-y-4">
-          <div className="p-6 rounded-2xl bg-[#141418] border border-[#262630] space-y-4">
-            <div className="flex items-center justify-between">
+          <div className="p-6 rounded-xl bg-white border border-slate-200 dark:bg-[#121215] dark:border-zinc-800 space-y-4 shadow-xs">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <WhatsAppIcon variant="official" size={18} />
+                <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                  <WhatsAppIcon variant="official" size={16} />
                   <span>Cluster de WhatsApp Evolution v2 (Produção VPS)</span>
                 </h3>
-                <p className="text-xs text-[#8E8E98]">
-                  Monitoramento em tempo real dos contêineres Docker, sessões WhatsApp e motor de mensagens humanizadas.
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                  Monitoramento em tempo real dos contêineres Docker, instâncias WhatsApp e motor humanizado.
                 </p>
               </div>
-              <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-[#34D399]/15 text-[#34D399] border border-[#34D399]/30">
-                ● 6 Contêineres Saudáveis e Ativos
+              <span className="px-3 py-1 rounded-md text-xs font-mono font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40 flex items-center gap-1.5">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
+                </span>
+                <span>6 Contêineres Operacionais</span>
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-              <div className="p-3.5 rounded-xl bg-black/40 border border-[#262630]">
-                <span className="text-[10px] text-[#8E8E98] uppercase font-bold block">API de WhatsApp (Evolution)</span>
-                <span className="text-xs font-mono font-bold text-white mt-0.5 block">v2.3.7 (Porta 8080)</span>
-                <span className="text-[10px] text-[#34D399] block mt-1">✓ Instâncias ativas e operacionais</span>
+              <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800">
+                <span className="text-[10px] text-slate-500 dark:text-zinc-400 uppercase font-medium block">Evolution API v2</span>
+                <span className="text-xs font-mono font-semibold text-slate-900 dark:text-zinc-100 mt-0.5 block">v2.3.7 (Porta 8080)</span>
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 block mt-1">✓ Instâncias ativas</span>
               </div>
-              <div className="p-3.5 rounded-xl bg-black/40 border border-[#262630]">
-                <span className="text-[10px] text-[#8E8E98] uppercase font-bold block">Banco de Dados PostgreSQL 15</span>
-                <span className="text-xs font-mono font-bold text-white mt-0.5 block">Porta 5432</span>
-                <span className="text-[10px] text-[#34D399] block mt-1">✓ Conexão estável e segura</span>
+              <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800">
+                <span className="text-[10px] text-slate-500 dark:text-zinc-400 uppercase font-medium block">PostgreSQL 15</span>
+                <span className="text-xs font-mono font-semibold text-slate-900 dark:text-zinc-100 mt-0.5 block">Porta 5432</span>
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 block mt-1">✓ Conexão estável</span>
               </div>
-              <div className="p-3.5 rounded-xl bg-black/40 border border-[#262630]">
-                <span className="text-[10px] text-[#8E8E98] uppercase font-bold block">Servidor de Filas Redis 7</span>
-                <span className="text-xs font-mono font-bold text-white mt-0.5 block">Porta 6379</span>
-                <span className="text-[10px] text-[#34D399] block mt-1">✓ Sessões e filas ativas</span>
+              <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800">
+                <span className="text-[10px] text-slate-500 dark:text-zinc-400 uppercase font-medium block">Filas Redis 7</span>
+                <span className="text-xs font-mono font-semibold text-slate-900 dark:text-zinc-100 mt-0.5 block">Porta 6379</span>
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 block mt-1">✓ Filas operacionais</span>
               </div>
-              <div className="p-3.5 rounded-xl bg-black/40 border border-[#262630]">
-                <span className="text-[10px] text-[#8E8E98] uppercase font-bold block">Proxy Seguro Caddy (SSL/TLS)</span>
-                <span className="text-xs font-mono font-bold text-white mt-0.5 block">Portas 80/443</span>
-                <span className="text-[10px] text-[#34D399] block mt-1">✓ Roteamento por slug (/b/:slug) ativo</span>
+              <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800">
+                <span className="text-[10px] text-slate-500 dark:text-zinc-400 uppercase font-medium block">Proxy Caddy SSL</span>
+                <span className="text-xs font-mono font-semibold text-slate-900 dark:text-zinc-100 mt-0.5 block">Portas 80/443</span>
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 block mt-1">✓ Roteamento ativo</span>
               </div>
             </div>
           </div>
@@ -1709,6 +1858,14 @@ export const SuperAdminBiDashboard: React.FC<SuperAdminBiDashboardProps> = ({
             onNavigateTenantAdmin={onNavigateTenantAdmin}
           />
         </section>
+      )}
+
+      {selectedReceiptInvoice && (
+        <DigitalReceiptModal
+          invoice={selectedReceiptInvoice}
+          tenant={tenants.find((t) => t.id === selectedReceiptInvoice.tenantId) || DEFAULT_TENANT_CONFIG}
+          onClose={() => setSelectedReceiptInvoice(null)}
+        />
       )}
     </div>
   );

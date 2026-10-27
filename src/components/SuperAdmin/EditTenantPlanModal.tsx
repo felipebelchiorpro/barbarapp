@@ -30,7 +30,7 @@ export const EditTenantPlanModal: React.FC<EditTenantPlanModalProps> = ({
   onClose,
   onSave,
 }) => {
-  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'pro' | 'enterprise'>(tenant.plan);
+  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'pro' | 'enterprise' | 'partner'>(tenant.plan);
   const [basePrice, setBasePrice] = useState<string>(
     String(tenant.planBasePrice ?? (selectedPlan === 'starter' ? 49.9 : selectedPlan === 'pro' ? 89.9 : 149.9))
   );

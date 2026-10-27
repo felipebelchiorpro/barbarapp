@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx tests/contiguousSlots.test.ts && tsx tests/crmWebhooksAndBi.test.ts && tsx tests/systemDiagnosticsAndErrorLogs.test.ts && tsx tests/authAndMultiTenantRls.test.ts && tsx tests/securityAndArchitectureAudit.test.ts && tsx tests/establishmentFormAndFiscal.test.ts && tsx tests/appSecRemediation.test.ts && tsx tests/clubSubscriptionsAndMultiTenant.test.ts && tsx tests/securityLoginGuard.test.ts && tsx tests/categoriesAndProductsManagement.test.ts",
+    "test": "tsx tests/contiguousSlots.test.ts && tsx tests/crmWebhooksAndBi.test.ts && tsx tests/systemDiagnosticsAndErrorLogs.test.ts && tsx tests/authAndMultiTenantRls.test.ts && tsx tests/securityAndArchitectureAudit.test.ts && tsx tests/establishmentFormAndFiscal.test.ts && tsx tests/appSecRemediation.test.ts && tsx tests/clubSubscriptionsAndMultiTenant.test.ts && tsx tests/securityLoginGuard.test.ts && tsx tests/categoriesAndProductsManagement.test.ts && tsx tests/stripeGatewayIntegration.test.ts",
     "server": "tsx src/server/standaloneServer.ts",
     "pb": "pocketbase\\pocketbase.exe serve --dir=pocketbase/pb_data"
   },

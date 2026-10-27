@@ -37,7 +37,7 @@ export interface StripeWebhookResult {
  */
 export async function createStripeSubscriptionCheckout(params: {
   tenant: TenantConfig;
-  planId: 'starter' | 'pro' | 'enterprise';
+  planId: 'starter' | 'pro' | 'enterprise' | 'partner';
   billingCycle?: SubscriptionBillingCycle;
   successUrl?: string;
   cancelUrl?: string;
@@ -66,7 +66,55 @@ export async function createStripeSubscriptionCheckout(params: {
   // Multiplicador do ciclo
   const multiplier = billingCycle === 'anual' ? 10 : billingCycle === 'semestral' ? 5.5 : 1;
   const cycleAmount = monthlyTotal * multiplier;
+  const amountCents = Math.round(cycleAmount * 100);
 
+  const defaultSuccessUrl =
+    params.successUrl ||
+    (typeof window !== 'undefined'
+      ? `${window.location.origin}/admin?stripe_payment=success&session_id={CHECKOUT_SESSION_ID}`
+      : 'https://navillebarber.pro/admin?stripe_payment=success');
+  const defaultCancelUrl =
+    params.cancelUrl ||
+    (typeof window !== 'undefined'
+      ? `${window.location.origin}/admin?stripe_payment=cancelled`
+      : 'https://navillebarber.pro/admin?stripe_payment=cancelled');
+
+  // Tenta criar sessão oficial no Stripe via backend Naville
+  try {
+    const baseUrl =
+      typeof window !== 'undefined' ? window.location.origin : (process.env.APP_URL || 'http://localhost:3001');
+    const res = await fetch(`${baseUrl}/api/stripe/create-checkout-session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tenantId: tenant.id,
+        slug: tenant.slug,
+        tenantName: tenant.name,
+        planId,
+        billingCycle,
+        amountCents,
+        successUrl: defaultSuccessUrl,
+        cancelUrl: defaultCancelUrl,
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.checkoutUrl) {
+        return {
+          success: true,
+          exempt: false,
+          checkoutUrl: data.checkoutUrl,
+          sessionId: data.sessionId,
+          message: `Sessão Stripe Checkout oficial gerada com sucesso para o plano ${planId.toUpperCase()} (${billingCycle}). Valor: R$ ${cycleAmount.toFixed(2)}.`,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('[StripeService] Não foi possível conectar ao endpoint Stripe backend, utilizando checkout link direto:', err);
+  }
+
+  // Fallback se backend local não responder
   const sessionId = `cs_naville_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   const checkoutUrl = `https://checkout.stripe.com/pay/${sessionId}?tenant=${encodeURIComponent(tenant.slug)}&amount=${cycleAmount.toFixed(2)}`;
 

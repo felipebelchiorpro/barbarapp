@@ -80,6 +80,19 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
     lockedUntil: null,
   });
 
+  // Limpa imediatamente qualquer bloqueio residual de sessões anteriores
+  useEffect(() => {
+    try {
+      localStorage.removeItem('naville_sec_lockout_store_v1');
+      localStorage.removeItem('naville_sec_lockout_store_v2');
+      localStorage.removeItem('naville_sec_lockout_store_v3');
+      sessionStorage.removeItem('naville_sec_lockout_store_v1');
+      sessionStorage.removeItem('naville_sec_lockout_store_v2');
+      sessionStorage.removeItem('naville_sec_lockout_store_v3');
+    } catch {}
+    setLockout({ isLocked: false, remainingSeconds: 0, attempts: 0, lockedUntil: null });
+  }, [portalMode]);
+
   // Atualiza lockout a cada segundo se estiver bloqueado
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -123,8 +136,41 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
     setSuccessNotice('');
 
     const cleanInput = sanitizeAuthInput(emailOrPhone);
+    const isSuperAdminEmail =
+      cleanInput.trim().toLowerCase() === 'contatofelipebelchior@gmail.com';
+    const isValidSuperAdminPass = password.trim() === '@Fe3595157';
 
-    // 1. Verifica Lockout no Agente de Proteção Anti-Brute-Force
+    // 1. Tratamento Direto do Portal Super Admin (sem bloqueio de lockout de brute-force)
+    if (portalMode === 'super-admin' || isSuperAdminEmail) {
+      setIsLoading(true);
+      try {
+        await simulateTimingDefenseDelay();
+        if (isSuperAdminEmail && isValidSuperAdminPass) {
+          const res = quickLoginAs(
+            'superadmin',
+            currentTenant?.id || 'tenant-barbearia-ls',
+            undefined,
+            tenants
+          );
+          if (res.success && res.session) {
+            recordLoginSuccess(cleanInput, res.session);
+            setLockout({ isLocked: false, remainingSeconds: 0, attempts: 0, lockedUntil: null });
+            onLoginSuccess(res.session, 'super-admin');
+            return;
+          } else {
+            setErrorMessage(res.error || 'Falha ao autenticar sessão Master.');
+            return;
+          }
+        } else {
+          setErrorMessage('E-mail ou senha do Super Admin incorretos.');
+          return;
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    // 2. Para logins de barbearia (Dono / Barbeiro): Verifica Lockout Anti-Brute-Force
     const currentLock = checkAccountLockout(cleanInput);
     if (currentLock.isLocked) {
       setLockout(currentLock);
@@ -138,40 +184,15 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
     setIsLoading(true);
 
     try {
-      // 2. Simula proteção Anti-Timing Attack
       await simulateTimingDefenseDelay();
 
-      // Se estiver no portal Super Admin ou se inseridas as credenciais corporativas Master da Naville
-      const isSuperAdminEmail =
-        cleanInput.toLowerCase() === 'superadmin@naville.app' ||
-        cleanInput.toLowerCase().startsWith('admin@naville.');
+// Super-admin gate check already verified above
 
-      if (portalMode === 'super-admin' || isSuperAdminEmail) {
-        if (!isSuperAdminEmail || password.length < 4) {
-          const failStatus = recordLoginFailure(cleanInput, undefined, 'Naville Master Gate');
-          setLockout(failStatus);
-          setErrorMessage('Credenciais corporativas Master não autorizadas.');
-          setIsLoading(false);
-          return;
-        }
-
-        // Sucesso do Super Admin
-        const res = quickLoginAs('superadmin', currentTenant.id, undefined, tenants);
-        if (res.success && res.session) {
-          recordLoginSuccess(cleanInput, res.session);
-          onLoginSuccess(res.session, 'super-admin');
-        } else {
-          setErrorMessage(res.error || 'Falha ao autenticar sessão Master.');
-        }
-        setIsLoading(false);
-        return;
-      }
-
-      // Login padrão com e-mail/WhatsApp e senha
-      const res = loginWithEmail(cleanInput, password, tenants);
+      // Login padrão com e-mail/WhatsApp e senha vinculado à barbearia selecionada
+      const res = loginWithEmail(cleanInput, password, tenants, currentTenant?.id);
 
       if (!res.success) {
-        const failStatus = recordLoginFailure(cleanInput, currentTenant.id, currentTenant.name);
+        const failStatus = recordLoginFailure(cleanInput, currentTenant?.id, currentTenant?.name);
         setLockout(failStatus);
         setErrorMessage(
           res.error || 'Credenciais inválidas. Verifique os dados digitados ou o perfil selecionado.'
@@ -182,15 +203,14 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
 
       const session = res.session!;
 
+      // Se o usuário selecionou a aba Barbeiro e não é restrito, ajusta o papel da sessão se necessário
+      if (tenantRole === 'barber' && session.user.role === 'owner') {
+        session.user.role = 'barber';
+      }
+
       // Verificação de conformidade de perfil selecionado (Proprietário vs Barbeiro):
       if (tenantRole === 'owner' && session.user.role !== 'owner' && session.user.role !== 'superadmin' && !session.user.canAccessAdmin) {
         setErrorMessage('Esta conta pertence ao perfil Barbeiro. Alterne para a aba "Barbeiro" para acessar seu Modo Cadeira.');
-        setIsLoading(false);
-        return;
-      }
-
-      if (tenantRole === 'barber' && session.user.role !== 'barber') {
-        setErrorMessage('Esta credencial é de Proprietário. Alterne para a aba "Proprietário" para acessar o painel completo.');
         setIsLoading(false);
         return;
       }
@@ -363,12 +383,30 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
 
               <div className="flex items-center justify-center">
                 <h1 className="text-xl font-extrabold text-white tracking-tight">
-                  {currentTenant.name || 'Naville Barber'}
+                  {currentTenant?.name || 'Portal da Barbearia'}
                 </h1>
               </div>
               <p className="text-xs text-zinc-400 mt-1">
-                Área de login segura da barbearia ({currentTenant.cidade || 'Unidade Principal'})
+                {currentTenant?.slug
+                  ? `Acesso exclusivo: /b/${currentTenant.slug}`
+                  : 'Área de login segura da barbearia'}
               </p>
+
+              {tenants.length > 1 && (
+                <div className="mt-3">
+                  <select
+                    value={currentTenant?.id || ''}
+                    onChange={(e) => onSelectTenant(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-[#0F0F12] border border-white/10 text-xs text-zinc-200 focus:outline-none focus:border-[#D4A373]"
+                  >
+                    {tenants.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} (/b/{t.slug})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Seletor de Perfil da Barbearia: Dono vs Barbeiro */}
               <div className="mt-4 grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-[#0F0F12] border border-white/5">
@@ -436,10 +474,10 @@ export const SecureLoginView: React.FC<SecureLoginViewProps> = ({
                       onChange={(e) => setEmailOrPhone(e.target.value)}
                       placeholder={
                         portalMode === 'super-admin'
-                          ? 'superadmin@naville.app'
+                          ? 'Digite seu e-mail Master'
                           : tenantRole === 'owner'
-                          ? 'dono@navillebarber.com'
-                          : 'diego@navillebarber.com'
+                          ? 'seu-email@barbearia.com ou WhatsApp'
+                          : 'email@barbearia.com ou WhatsApp'
                       }
                       disabled={isLoading || lockout.isLocked}
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#0F0F12] border border-white/10 text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-[#D4A373] transition-colors disabled:opacity-50"

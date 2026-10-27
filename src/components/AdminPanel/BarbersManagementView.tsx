@@ -18,7 +18,8 @@ import {
   Camera,
   User,
   ArrowsClockwise,
-  Lightning
+  Lightning,
+  Clock,
 } from '@phosphor-icons/react';
 import { Barber, BarberAttendanceType, Service, TenantConfig } from '../../types';
 import { formatCurrency } from '../../utils/formatters';
@@ -36,6 +37,7 @@ interface BarbersManagementViewProps {
   onDeleteBarber: (barberId: string) => void;
   onToggleActive: (barberId: string) => boolean;
   onUpdateTenantConfig?: (tenant: TenantConfig) => void;
+  onOpenBlockModal?: (barberId?: string) => void;
 }
 
 export const BarbersManagementView: React.FC<BarbersManagementViewProps> = ({
@@ -47,6 +49,7 @@ export const BarbersManagementView: React.FC<BarbersManagementViewProps> = ({
   onDeleteBarber,
   onToggleActive,
   onUpdateTenantConfig,
+  onOpenBlockModal,
 }) => {
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -556,6 +559,18 @@ export const BarbersManagementView: React.FC<BarbersManagementViewProps> = ({
                 </button>
 
                 <div className="flex items-center gap-1.5">
+                  {/* Bloquear Horário / Almoço */}
+                  {onOpenBlockModal && (
+                    <button
+                      onClick={() => onOpenBlockModal(barber.id)}
+                      className="h-8 px-2.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-[#D4AF37] border border-amber-500/30 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+                      title={`Bloquear horários de almoço, folga ou ausência de ${barber.name}`}
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Bloquear Horário / Almoço</span>
+                    </button>
+                  )}
+
                   {/* Editar */}
                   <button
                     onClick={() => handleOpenEditModal(barber)}

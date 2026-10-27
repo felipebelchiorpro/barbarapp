@@ -20,6 +20,7 @@ import {
   Search,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   RotateCcw,
   Sun,
   Sunrise,
@@ -27,6 +28,7 @@ import {
   Shield,
   User,
   MessageSquare,
+  Instagram,
 } from 'lucide-react';
 import {
   Barber,
@@ -140,14 +142,27 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
   const [historySearchPhone, setHistorySearchPhone] = useState<string>('');
   const [isClubModalOpen, setIsClubModalOpen] = useState<boolean>(false);
+  const [isUsingClubBenefit, setIsUsingClubBenefit] = useState<boolean>(false);
 
-  // Ambience gallery photos
-  const coverPhotos = [
-    'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1512690459411-b9245aed614b?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=1200&q=80',
-  ];
+  // Ambience gallery photos (Prioriza a capa e fotos customizadas do proprietário)
+  const coverPhotos = useMemo(() => {
+    const photos: string[] = [];
+    if (tenantConfig.capaPrincipalUrl) {
+      photos.push(tenantConfig.capaPrincipalUrl);
+    }
+    if (tenantConfig.galeriaFotos && tenantConfig.galeriaFotos.length > 0) {
+      photos.push(...tenantConfig.galeriaFotos);
+    }
+    if (photos.length === 0) {
+      return [
+        'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1512690459411-b9245aed614b?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=1200&q=80',
+      ];
+    }
+    return photos;
+  }, [tenantConfig.capaPrincipalUrl, tenantConfig.galeriaFotos]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -193,7 +208,11 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
 
   const activeCustomerPlan = useMemo(() => {
     if (!detectedCustomer || detectedCustomer.status_assinatura !== 'ativo') return null;
-    return clientPlans.find((p) => p.id === detectedCustomer.plano_assinatura_id) || null;
+    return (
+      clientPlans.find((p) => p.id === detectedCustomer.plano_assinatura_id) ||
+      clientPlans[0] ||
+      null
+    );
   }, [detectedCustomer, clientPlans]);
 
   // Pré-preenchimento automático do nome caso o cliente já esteja cadastrado por este WhatsApp (documento)
@@ -606,17 +625,25 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
         {/* ========================================================================= */}
         <header className="sticky top-0 z-40 bg-[#0F0F11]/95 backdrop-blur-md border-b border-[#2A2A32]/60 px-4 py-2.5 transition-all flex items-center justify-between">
           <div className="flex items-center gap-2.5 select-none">
-            <img
-              src="/naville_logo_white.png"
-              alt="Naville Barber"
-              className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0"
-            />
+            {tenantConfig.logoUrl ? (
+              <img
+                src={tenantConfig.logoUrl}
+                alt={tenantConfig.name || 'Logo Barbearia'}
+                className="w-7 h-7 sm:w-8 sm:h-8 object-cover rounded-lg shrink-0 border border-white/10"
+              />
+            ) : (
+              <img
+                src="/naville_logo_white.png"
+                alt="Naville Barber"
+                className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0"
+              />
+            )}
             <div className="flex flex-col">
               <span className="font-display font-black tracking-wider text-sm sm:text-base text-white uppercase leading-none">
-                Naville Barber
+                {tenantConfig.name || 'Naville Barber'}
               </span>
               <span className="text-[9px] text-zinc-400 font-medium tracking-tight mt-0.5">
-                Tecnologia Naville
+                {tenantConfig.cidade || 'Agendamento Online'}
               </span>
             </div>
           </div>
@@ -708,12 +735,20 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
               {/* Round Barbershop Crest / Logo with Gold Ring */}
               <div className="relative flex-shrink-0">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#261E14] to-[#141416] p-0.5 border-2 border-[#D4A373] shadow-lg flex items-center justify-center">
-                  <div className="w-full h-full rounded-[14px] bg-[#16161A] flex items-center justify-center p-2">
-                    <img
-                      src="/naville_logo_white.png"
-                      alt={tenantConfig.name || 'Naville Barber'}
-                      className="w-9 h-9 object-contain"
-                    />
+                  <div className="w-full h-full rounded-[14px] bg-[#16161A] flex items-center justify-center overflow-hidden">
+                    {tenantConfig.logoUrl ? (
+                      <img
+                        src={tenantConfig.logoUrl}
+                        alt={tenantConfig.name || 'Logo Barbearia'}
+                        className="w-full h-full object-cover rounded-[12px]"
+                      />
+                    ) : (
+                      <img
+                        src="/naville_logo_white.png"
+                        alt={tenantConfig.name || 'Naville Barber'}
+                        className="w-9 h-9 object-contain p-1"
+                      />
+                    )}
                   </div>
                 </div>
                 <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[#0F0F11] flex items-center justify-center" title="Aberto Agora">
@@ -733,7 +768,7 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
                 </div>
                 <p className="text-[11px] text-[#8E8E98] mt-0.5 flex items-center gap-1">
                   <MapPin className="w-3 h-3 text-[#D4A373]" />
-                  <span>{tenantConfig.cidade || tenantConfig.address || 'Jardins, São Paulo • 1.2 km'}</span>
+                  <span>{tenantConfig.address || tenantConfig.cidade || 'Jardins, São Paulo'}</span>
                 </p>
 
                 {/* Stars Rating and Reviews */}
@@ -772,29 +807,46 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
               </div>
               <div className="truncate">
                 <span className="text-[10px] font-bold text-emerald-400 block leading-none">
-                  Aberto hoje até 20:30
+                  Aberto hoje até {tenantConfig.horario_fechamento || '20:00'}
                 </span>
                 <span className="text-[10px] text-[#8E8E98] block mt-0.5 truncate">
-                  Segunda a Sábado • 09:00 às 20:30
+                  Segunda a Sábado • {tenantConfig.horario_abertura || '09:00'} às {tenantConfig.horario_fechamento || '20:00'}
                 </span>
               </div>
             </div>
 
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <a
-                href={`https://wa.me/55${cleanDigits(tenantConfig.ownerPhone || '11981234567')}?text=Ol%C3%A1%2C%20gostaria%20de%20informa%C3%A7%C3%B5es%20sobre%20a%20${encodeURIComponent(tenantConfig.name || 'Barbearia')}`}
+                href={`https://wa.me/55${cleanDigits(tenantConfig.ownerPhone || tenantConfig.supportPhone || '11981234567')}?text=Ol%C3%A1%2C%20gostaria%20de%20informa%C3%A7%C3%B5es%20sobre%20a%20${encodeURIComponent(tenantConfig.name || 'Barbearia')}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-2.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold flex items-center gap-1 hover:bg-emerald-500/25 transition-all"
+                title="Conversar no WhatsApp"
               >
                 <WhatsAppIcon variant="official" size={13} />
                 <span>Zap</span>
               </a>
 
+              {tenantConfig.instagramUrl && (
+                <a
+                  href={tenantConfig.instagramUrl.startsWith('http') ? tenantConfig.instagramUrl : `https://instagram.com/${tenantConfig.instagramUrl.replace('@', '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 rounded-xl bg-[#0F0F11] border border-[#2A2A32] text-[#8E8E98] hover:text-[#E1306C] hover:border-[#E1306C]/40 transition-all flex items-center justify-center"
+                  title="Instagram da Barbearia"
+                >
+                  <Instagram className="w-3.5 h-3.5" />
+                </a>
+              )}
+
               <button
                 onClick={() => {
-                  const addr = tenantConfig.address || 'Av. Paulista, 1000 - Jardins, São Paulo';
-                  window.open(`https://maps.google.com/?q=${encodeURIComponent(addr)}`, '_blank');
+                  if (tenantConfig.googleMapsUrl) {
+                    window.open(tenantConfig.googleMapsUrl, '_blank');
+                  } else {
+                    const addr = tenantConfig.address || tenantConfig.cidade || tenantConfig.name || 'Barbearia';
+                    window.open(`https://maps.google.com/?q=${encodeURIComponent(addr)}`, '_blank');
+                  }
                 }}
                 className="p-1.5 rounded-xl bg-[#0F0F11] border border-[#2A2A32] text-[#8E8E98] hover:text-white transition-all"
                 title="Abrir no Google Maps"
@@ -803,6 +855,13 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
               </button>
             </div>
           </div>
+
+          {/* Descrição do Espaço quando informada pelo proprietário */}
+          {tenantConfig.descricao_espaco && (
+            <div className="mt-2.5 px-3 py-2 rounded-xl bg-[#16161A]/80 border border-white/5 text-[11px] text-[#A1A1AA] leading-relaxed">
+              <p>{tenantConfig.descricao_espaco}</p>
+            </div>
+          )}
         </div>
 
         {/* Live Search Bar */}
@@ -1852,7 +1911,48 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
                   </div>
                 </div>
 
-                {/* Glowing VIP Subscriber Recognition Alert */}
+                {/* 3. Opção de Uso do Clube de Assinaturas VIP */}
+                {clientPlans.length > 0 && (
+                  <div
+                    onClick={() => setIsUsingClubBenefit(!isUsingClubBenefit)}
+                    className={`mt-3 p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                      isUsingClubBenefit
+                        ? 'bg-purple-950/40 border-purple-500/60 shadow-lg shadow-purple-900/20'
+                        : 'bg-[#16161A] border-[#2A2A32] hover:border-purple-500/30'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                          isUsingClubBenefit
+                            ? 'bg-purple-500/20 text-purple-300'
+                            : 'bg-[#0F0F11] text-[#8E8E98]'
+                        }`}
+                      >
+                        <Crown className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-white block">
+                          Sou do Clube VIP / Quero Usar Meu Plano
+                        </span>
+                        <span className="text-[10px] text-[#8E8E98] block">
+                          Corte com cobertura da assinatura (R$ 0,00 no balcão)
+                        </span>
+                      </div>
+                    </div>
+                    <div
+                      className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
+                        isUsingClubBenefit
+                          ? 'bg-purple-600 border-purple-500 text-white'
+                          : 'border-[#3A3A44] bg-[#0F0F11]'
+                      }`}
+                    >
+                      {isUsingClubBenefit && <Check className="w-3.5 h-3.5" />}
+                    </div>
+                  </div>
+                )}
+
+                {/* A. Assinante VIP Reconhecido com Sucesso */}
                 {detectedCustomer && activeCustomerPlan && (
                   <div className="mt-3 p-3 rounded-xl bg-purple-500/15 border border-purple-500/40 text-purple-200 text-xs flex items-start gap-2.5 animate-in fade-in">
                     <Crown className="w-4 h-4 text-purple-300 shrink-0 mt-0.5" />
@@ -1863,10 +1963,63 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
                       <span className="text-[11px] text-purple-200/90 block mt-0.5">
                         Plano <strong>{activeCustomerPlan.nome}</strong> ativo.
                         {activeCustomerPlan.limite_cortes_mes === 0
-                          ? ' Cortes ilimitados inclusos!'
+                          ? ' Cortes ilimitados inclusos no seu plano!'
                           : ` Cortes utilizados: ${detectedCustomer.cortes_utilizados_mes || 0}/${activeCustomerPlan.limite_cortes_mes}.`}
                       </span>
                     </div>
+                  </div>
+                )}
+
+                {/* B. Tentou agendar pelo clube mas NÃO é assinante ativo */}
+                {isUsingClubBenefit && cleanDigits(clientPhone).length >= 10 && (!detectedCustomer || !activeCustomerPlan) && (
+                  <div className="mt-3 p-3.5 rounded-2xl bg-amber-950/30 border border-amber-500/50 text-xs animate-in fade-in">
+                    <div className="flex items-start gap-2.5">
+                      <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-amber-300 block text-[11px]">
+                          Você ainda não possui assinatura ativa no Clube VIP!
+                        </span>
+                        <span className="text-[10px] text-zinc-300 block mt-1 leading-relaxed">
+                          Não encontramos um plano ativo vinculado ao WhatsApp <strong>{clientPhone}</strong>. Deseja fazer parte do clube agora e garantir seus cortes inclusos com até 40% de economia?
+                        </span>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsClubModalOpen(true)}
+                            className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-[10px] flex items-center gap-1 shadow-md transition-all active:scale-95"
+                          >
+                            <Crown className="w-3.5 h-3.5" />
+                            <span>Quero Fazer Parte do Clube VIP</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsUsingClubBenefit(false)}
+                            className="px-2.5 py-1.5 rounded-xl bg-[#2A2A32] hover:bg-[#3A3A42] text-zinc-300 font-medium text-[10px] transition-all"
+                          >
+                            Continuar como Agendamento Avulso
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* C. Não marcou o clube e não é assinante: Convite elegante / Upsell */}
+                {!isUsingClubBenefit && cleanDigits(clientPhone).length >= 10 && (!detectedCustomer || !activeCustomerPlan) && clientPlans.length > 0 && (
+                  <div className="mt-2.5 p-2.5 rounded-xl bg-gradient-to-r from-purple-950/20 via-[#16161A] to-[#16161A] border border-purple-500/20 text-xs flex items-center justify-between gap-2 animate-in fade-in">
+                    <div className="flex items-center gap-2">
+                      <Crown className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                      <span className="text-[10px] text-zinc-300">
+                        Corte com economia no <strong>Clube VIP</strong> a partir de R$ {clientPlans[0]?.valor_mensal?.toFixed(2)?.replace('.', ',') || '89,00'}/mês!
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsClubModalOpen(true)}
+                      className="shrink-0 text-[10px] font-bold text-purple-400 hover:text-purple-300 underline"
+                    >
+                      Conhecer Planos
+                    </button>
                   </div>
                 )}
               </div>
@@ -2057,6 +2210,25 @@ export const NavilleLuxuryClientView: React.FC<NavilleLuxuryClientViewProps> = (
               </div>
 
               <div className="mt-4 space-y-3">
+                {/* CTA Rápido para quem já é assinante agendar */}
+                <div className="p-3 rounded-2xl bg-[#0F0F11] border border-purple-500/25 flex items-center justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-bold text-white block">Já é assinante do Clube?</span>
+                    <span className="text-[10px] text-[#8E8E98] block">Agende usando seu corte incluso no plano</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsClubModalOpen(false);
+                      setIsUsingClubBenefit(true);
+                      setIsCheckoutModalOpen(true);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1 shrink-0 active:scale-95"
+                  >
+                    <Crown className="w-3.5 h-3.5 text-purple-200" />
+                    <span>Agendar pelo Clube</span>
+                  </button>
+                </div>
                 {clientPlans.map((plan) => (
                   <div
                     key={plan.id}
