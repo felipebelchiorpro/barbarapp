@@ -28,6 +28,8 @@ volumes:
     name: naville_evo_instances
   evolution_store:
     name: naville_evo_store
+  waha_sessions:
+    name: naville_waha_sessions
 
 services:
   # ============================================================================
@@ -169,3 +171,28 @@ services:
       - naville_network
     expose:
       - "3000"
+
+  # ============================================================================
+  # 7. WAHA (WhatsApp HTTP API) - Motor Primário Leve e Estável
+  # ============================================================================
+  waha:
+    image: devlikeapro/waha:latest
+    container_name: naville_waha
+    restart: unless-stopped
+    environment:
+      - WHATSAPP_DEFAULT_ENGINE=WEBJS
+      - WAHA_LOG_LEVEL=info
+      - WAHA_DASHBOARD_ENABLED=true
+      - WAHA_ZIP_SESSIONS=true
+      - WAHA_API_KEY=naville_waha_master_key_2026
+      - WAHA_DASHBOARD_USERNAME=admin
+      - WAHA_DASHBOARD_PASSWORD=navilleadmin2026
+    volumes:
+      - waha_sessions:/app/.sessions
+    networks:
+      - naville_network
+    ports:
+      - "3018:3000"
+    expose:
+      - "3000"
+

@@ -8,13 +8,15 @@ export interface WahaConnectResult {
   count?: number;
 }
 
+export const DEFAULT_WAHA_API_KEY = 'naville_waha_master_key_2026';
+
 /**
  * Normaliza a URL base do WAHA (WhatsApp HTTP API)
  */
-export function cleanWahaBaseUrl(url: string): string {
+export function cleanWahaBaseUrl(url?: string): string {
   const cleaned = (url || '').trim().replace(/\/+$/, '');
   if (!cleaned || cleaned === 'http://waha:3000' || cleaned === 'https://waha:3000') {
-    return '';
+    return '/waha';
   }
   return cleaned;
 }
@@ -25,10 +27,9 @@ export function cleanWahaBaseUrl(url: string): string {
 export function getWahaHeaders(apiKey?: string): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'Accept': 'application/json, text/plain, */*',
   };
-  if (apiKey?.trim()) {
-    headers['X-Api-Key'] = apiKey.trim();
-  }
+  headers['X-Api-Key'] = (apiKey && apiKey.trim()) || DEFAULT_WAHA_API_KEY;
   return headers;
 }
 
@@ -66,7 +67,7 @@ export async function getWahaSessionStatus(
 ): Promise<{ status: WhatsAppConnectionStatus; phone?: string | null }> {
   const baseUrl = cleanWahaBaseUrl(config.baseUrl);
   const session = getWahaSessionName(config);
-  const isDirect = Boolean(baseUrl && (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')));
+  const isDirect = Boolean(baseUrl && (baseUrl.startsWith('http://') || baseUrl.startsWith('https://') || baseUrl.startsWith('/waha')));
 
   const endpoint = isDirect
     ? `${baseUrl}/api/sessions/${session}`
@@ -114,7 +115,7 @@ export async function getWahaSessionStatus(
 export async function startWahaSession(config: EvolutionApiConfig): Promise<boolean> {
   const baseUrl = cleanWahaBaseUrl(config.baseUrl);
   const session = getWahaSessionName(config);
-  const isDirect = Boolean(baseUrl && (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')));
+  const isDirect = Boolean(baseUrl && (baseUrl.startsWith('http://') || baseUrl.startsWith('https://') || baseUrl.startsWith('/waha')));
 
   if (!isDirect) return true;
 
@@ -145,7 +146,7 @@ export async function getWahaQRCode(
 ): Promise<WahaConnectResult> {
   const baseUrl = cleanWahaBaseUrl(config.baseUrl);
   const session = getWahaSessionName(config);
-  const isDirect = Boolean(baseUrl && (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')));
+  const isDirect = Boolean(baseUrl && (baseUrl.startsWith('http://') || baseUrl.startsWith('https://') || baseUrl.startsWith('/waha')));
 
   // No modo direto, primeiro garante que a sessão foi inicializada
   if (isDirect) {
@@ -204,7 +205,7 @@ export async function getWahaQRCode(
 export async function logoutWahaSession(config: EvolutionApiConfig): Promise<boolean> {
   const baseUrl = cleanWahaBaseUrl(config.baseUrl);
   const session = getWahaSessionName(config);
-  const isDirect = Boolean(baseUrl && (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')));
+  const isDirect = Boolean(baseUrl && (baseUrl.startsWith('http://') || baseUrl.startsWith('https://') || baseUrl.startsWith('/waha')));
 
   const endpoint = isDirect
     ? `${baseUrl}/api/sessions/${session}/logout`
@@ -237,7 +238,7 @@ export async function sendWahaTextMessage(
 ): Promise<{ success: boolean; error?: string }> {
   const baseUrl = cleanWahaBaseUrl(config.baseUrl);
   const session = getWahaSessionName(config);
-  const isDirect = Boolean(baseUrl && (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')));
+  const isDirect = Boolean(baseUrl && (baseUrl.startsWith('http://') || baseUrl.startsWith('https://') || baseUrl.startsWith('/waha')));
 
   const cleanPhone = phone.replace(/\D/g, '');
   const formattedNumber = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;

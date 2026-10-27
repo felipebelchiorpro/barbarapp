@@ -47,6 +47,15 @@
         }
     }
 
+    # WAHA WhatsApp HTTP API
+    handle /waha/* {
+        uri strip_prefix /waha
+        reverse_proxy waha:3000 {
+            header_up Host {upstream_hostport}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
     # Frontend Web / PWA (rotas /b/:slug, /painel, /barbeiro, etc)
     handle {
         reverse_proxy frontend-app:3000
@@ -69,6 +78,13 @@ navillebarber.pro, www.navillebarber.pro {
     handle /evolution/* {
         uri strip_prefix /evolution
         reverse_proxy evolution-api:8080
+    }
+    handle /waha/* {
+        uri strip_prefix /waha
+        reverse_proxy waha:3000 {
+            header_up Host {upstream_hostport}
+            header_up X-Real-IP {remote_host}
+        }
     }
     handle {
         reverse_proxy frontend-app:3000
